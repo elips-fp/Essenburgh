@@ -10,23 +10,8 @@
 library("tidyr")
 library("dplyr")
 ##
-##---- step 1: prepare the download (URL & landingplace) -----------------------
-# myURL <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
-# myURL <- sub("^https", "http", myURL)
-# if (!file.exists("data")) {
-#         dir.create("data")
-# }
 ##
-##---- step 2: download the zip-file, unzip it and delete it------------------- 
-# download.file(myURL, destfile = "./data/temp.zip", mode="wb")
-# dateDownloaded <- date()
-# unzip("./data/temp.zip", exdir = "./data")
-# unlink("./data/temp.zip")
-##
-##-----------------------------------------------------------------------------
-##----- PART 2. MAKING DATAFRAMES OF THE RELEVANT DATA ------------------------
-##
-##---- step 3: read and concatenate all relevant csv.files into tibbles ----
+##---- step 1: read and concatenate all relevant csv.files into tibbles ----
 CCP_1 <- tbl_df(read.csv("./data/CCP_20171020_1.csv",
                          skip = 2, header = TRUE, colClasses = "character"))
 CCP_2 <- tbl_df(read.csv("./data/CCP_20171020-2.csv",
@@ -45,10 +30,21 @@ PS <- rbind(PS_1, PS_2)
 if (nrow(PS_1) + nrow(PS_2) == nrow(PS)) {
         rm(PS_1, PS_2)
 }
-##-----------------------------------------------------------------------------
-##----- PART 3. DELETE ALL COLUMNS THAT ARE EMPTY -------
+##---- step 2: import Lookup-table clinics into tibble ----
+LUT <- tbl_df(read.csv2("./data/LUT.csv",
+                        skip = 3, header = TRUE, 
+                        encoding = "UTF-8", colClasses = "character"))
+ColIndex <- c(4,6,7,9,10)
+NameVector <- c("country", "c_id", "c_name", "NoE", "NoP")
+LUT <- LUT[,ColIndex]
+colnames(LUT) <- NameVector
 ##
-##---- step 4: import Lookup-table clinics into tibble ----
+
+
+##-----------------------------------------------------------------------------
+##----- PART 2. CLEANING UP THE DATA ------------------------------------------
+##
+##---- step 3: Delete all columns that are empty ----
 ##
 x <- nrow(PS)
 y <- c(1:ncol(PS))
@@ -69,21 +65,8 @@ for (i in y) {
 }
 CCP_C <- CCP[,ColVector]
 ##
-##---- step 5: import Lookup-table clinics into tibble ----
-LUT <- tbl_df(read.csv2("./data/LUT.csv",
-                        skip = 3, header = TRUE, 
-                        encoding = "UTF-8", colClasses = "character"))
-ColIndex <- c(4,6,7,9,10)
-NameVector <- c("country", "c_id", "c_name", "NoE", "NoP")
-LUT <- LUT[,ColIndex]
-colnames(LUT) <- NameVector
+##---- step 4: Add processing column and Loop through data ----
 ##
-##-----------------------------------------------------------------------------
-##----- PART 4. CLEANING UP THE DATA ------------------------------------------
-##
-##---- step 6: add processing column and Loop through data ----
-##CCP_C <- cbind(CCP_C, c(rep("", nrow(CCP_C)))) 
-##colnames(CCP_C)
 CCP_C <- mutate(CCP_C, code="")
 x <- nrow(CCP_C)
 for (i in 1:x) {
