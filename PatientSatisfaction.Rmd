@@ -1,0 +1,167 @@
+---
+title: "Clean CareCoord_patients data"
+author: "Esther Lips"
+date: "3-11-2017"
+output: html_document
+---
+This markdown file describes the cleaning of the Care coordinates Patients file.
+
+STEP 0: load packages
+```
+library("tidyr")
+library("dplyr")
+```
+
+STEP 1: Read in data
+
+```
+ps1 <- tbl_df(read.csv("data/PatientSatisfaction/RawData-Part-1-5783064-11-2-2017-1509612855955.csv", skip = 2, colClasses = "character"))
+ps2 <- tbl_df(read.csv("data/PatientSatisfaction/RawData-Part-2-5783064-11-2-2017-1509612868323.csv", skip = 2, colClasses = "character"))
+ps3 <- tbl_df(read.csv("data/PatientSatisfaction/RawData-Part-3-5783064-11-2-2017-1509612880053.csv", skip = 2, colClasses = "character"))
+ps4 <- tbl_df(read.csv("data/PatientSatisfaction/RawData-Part-4-5783064-11-2-2017-1509612891744.csv", skip = 2, colClasses = "character"))
+```
+
+
+Concat all data
+
+```
+
+ps_data <- rbind(ps1, ps2, ps3, ps4)
+dim(ps_data)
+# [1] 19525    60
+```
+In total this file has 19525 instances with 60 columns
+
+/////
+
+STEP 2: match Clinic Names and Clinic IDs from PS file with those in LUT
+
+First, Import Lookup Table file for matching with ccp file
+
+
+```
+LUT <- tbl_df(read.csv2("./data/LUT.csv",
+                        skip = 3, header = TRUE, 
+                        encoding = "UTF-8", colClasses = "character"))
+LUT <- LUT[1:364,] # remove empty line at the end
+ColIndex <- c(4,6,7,9,10)
+NameVector <- c("country", "c_id", "c_name", "NoE", "NoP")
+LUT <- LUT[,ColIndex]
+colnames(LUT) <- NameVector
+
+```
+
+Add 'verwerkings code' column to moc file and initialize it with 'NM', which stands for 'non matching'.
+
+```
+ps_data$verw_code <- "NM"
+
+```
+
+Next, grep on clinic id in column clinic_id (there are some typos in this column) from ccp_data file
+
+```
+#get clinic id from `clinic_id` by grepping 4 digits at start of the string
+m <- regexpr("^\\d{4}", ps_data$clinic_id)
+ps_cid <- regmatches(ps_data$clinic_id, m)
+
+#get index of matches
+m.idx <- which(m == 1)
+length(m.idx)
+#[1] 16675
+
+# replace with correct clinic ID in `clinic_id`
+ps_data$clinic_id[m.idx] <- ps_cid
+
+```
+
+I noticed that there are 2 other ID's in this column that can be assigned to clinic names. I subsituted these 'manually'(8 in total)
+
+```
+nefro.idx = which(ps_data$clinic_id == "custom3=Nefroplana")
+ps_data$clinic_id[nefro.idx] = 1524
+palau.idx = which(ps_data$clinic_id == "custom3=Palau")
+ps_data$clinic_id[palau.idx] = 1527
+```
+
+Next, match 'clinic_id' in 'ps_data' to 'clinic_id' in LUT file
+
+```
+m.idx <- match(ps_data$clinic_id, LUT$c_id, nomatch=0)
+notnull <- which(m.idx !=0)
+length(notnull)
+# [1] 16678
+
+```
+
+Found in total 16678 matches on clinic id in column `clinic_id`. These have to be substituted by those in LUT. For this matches, the verwerkings code will be changed into 'VCID'
+
+```
+
+ps_data$country[notnull] <- LUT$country[m.idx]
+ps_data$clinic[notnull] <- LUT$c_name[m.idx]
+ps_data$clinic_id[notnull] <- LUT$c_id[m.idx]
+
+# change verwerwerkingcode to 'VCID'
+ps_data$verw_code[notnull] <- "VCID"
+
+```
+
+
+Few instances that still have code 'NM' have clinic names that are slightly different than in LUT. I changed them manually with the code below
+
+```
+n.idx <- which(ps_data$clinic == 'WarszawaChocimska') 
+ps_data$clinic[n.idx] <- 'Warszawa Chocimska'
+h.idx <- which(ps_data$clinic == 'HPA')
+ps_data$clinic[h.idx] <- 'HPA - Clínica de Diálise'
+me.idx <- which(ps_data$clinic == 'medicassisestoril')
+ps_data$clinic[me.idx] <- 'Medicassis - Estoril'
+
+```
+
+Match Clinic Name (lowercase) in those cases that in moc file with clinic name in LUT file. These have to be substituted by those in LUT. For this matches, the verwerkings code will be changed into 'VCNM'.
+
+```
+nm.idx <- which(ps_data$verw_code == 'NM')
+nm.subset <- ps_data[nm.idx,]
+nm.subset$index <- nm.idx
+
+# match clinic name on subset
+m.idx <- match(tolower(nm.subset$clinic), tolower(LUT$c_name), nomatch=0)
+notnull <- which(m.idx !=0)
+length(notnull)
+# [1] 312
+
+```
+Found in total 312 matches on clinic name in column `nm.subset$clinic` and changed the 'country', 'clinic_id' and 'clinic' to those in the LUT file. Subsequently, I overwrite the same instances in the 'ccp_data' (little complicated, but for double check if everything goes ok). 
+
+```
+
+sb.idx <- nm.subset$index[notnull]
+ps_data[sb.idx, 8:10] <- nm.subset[notnull, 8:10]
+
+ps_data$verw_code[sb.idx] <- "VCNM"
+
+
+nm.subset$country[notnull] <- LUT$country[m.idx]
+nm.subset$clinic[notnull] <- LUT$c_name[m.idx]
+nm.subset$clinic_id[notnull] <- LUT$c_id[m.idx]
+
+ps_data[sb.idx, 8:10] <- nm.subset[notnull, 8:10]
+ps_data$verw_code[sb.idx] <- "VCNM"
+
+```
+At the end of the analysis, in total 2535 instances will still have 'NM' in column 'verwerkings code'
+
+```
+length(which(ps_data$verw_code == 'NM'))
+#[1] 2535
+```
+
+Save files with and without verwerkingscode
+```
+write.csv(ccp_data[,1:60], file = "data/PatientSatisfaction/Clean-5742959-11-2-2017.csv")
+write.csv(ccp_data, file = "data/PatientSatisfaction/Clean-5742959-11-2-2017-verwerkingcode.csv")
+
+```

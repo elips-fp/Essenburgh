@@ -1,0 +1,137 @@
+---
+title: "CareCoord_staff"
+author: "Esther Lips"
+date: "3-11-2017"
+output: html_document
+---
+
+```
+library("tidyr")
+library("dplyr")
+```
+
+Step 2: Read data (and ignore warning messages)
+
+```
+ds1_s <- tbl_df(read.csv("data/CareCoordination/RawData-Part-1-5742477-11-2-2017-1509614063088.csv", skip = 2, colClasses = "character"))
+ds2_s <- tbl_df(read.csv("data/CareCoordination/RawData-Part-2-5742477-11-2-2017-1509614068758.csv", skip = 2, colClasses = "character"))
+
+```
+Remove first line, because it contains subquestion headers
+```
+ds1_s <- ds1_s[-1,]
+ds2_s <- ds2_s[-1,]
+
+```
+
+Concat all data
+
+```
+cc_staff <- rbind(ds1_s, ds2_s)
+dim(cc_staff)
+# [1] 5960  124
+```
+
+In total this dataframe has 5960 instances with 124 columns
+
+/////
+
+STEP 2: match Clinic Names and Clinic IDs from MOC file with those in LUT
+
+First, Import Lookup Table file for matching with ccp file
+
+```
+LUT <- tbl_df(read.csv2("./data/LUT.csv",
+                        skip = 3, header = TRUE, 
+                        encoding = "UTF-8", colClasses = "character"))
+LUT <- LUT[1:364,] # remove empty line at the end
+ColIndex <- c(4,6,7,9,10)
+NameVector <- c("country", "c_id", "c_name", "NoE", "NoP")
+LUT <- LUT[,ColIndex]
+colnames(LUT) <- NameVector
+
+```
+Add 'verwerkings code' column to moc file and initialize it with 'NM', which stands for 'non matching'.
+
+```
+cc_staff$verw_code <- "NM"
+
+```
+
+Match Clinic Name (lowercase) in moc file with clinic name in LUT file
+
+```
+m.idx <- match(tolower(cc_staff$Custom.Variable.5), tolower(LUT$c_name), nomatch=0)
+notnull <- which(m.idx !=0)
+length(notnull)
+#[1] 5087
+
+```
+Found in total 5087 matches on clinic name in column `Custom Variable 5`. These have to be substituted by those in LUT. For this matches, the verwerkings code will be changed into 'VCID'
+
+```
+cc_staff$country[notnull] <- LUT$country[m.idx]
+cc_staff$clinic[notnull] <- LUT$c_name[m.idx]
+cc_staff$clinic_id[notnull] <- LUT$c_id[m.idx]
+
+# verander verwerkingcode naar 'VCID
+cc_staff$verw_code[notnull] <- "VCID"
+
+```
+Next, remove arabic text by grepping on clinic id in column `Custom Variable 5'  moc_staff file 
+
+```
+#get clinic id from `Custom Variable 5` by grepping 4 digits at start of the string
+m <- regexpr("^\\d{4}", cc_staff$Custom.Variable.5)
+ccs_cid <- regmatches(cc_staff$Custom.Variable.5, m)
+
+#get index of matches
+m.idx <- which(m == 1)
+
+# replace with correct clinic ID in `Custom Variable 5`
+cc_staff$Custom.Variable.5[m.idx] <- ccs_cid
+
+```
+
+Next, match clinic ID in MOC with clinic ID in LUT
+
+```
+m.idx <- match(cc_staff$Custom.Variable.5, LUT$c_id, nomatch=0)
+notnull <- which(m.idx !=0)
+length(notnull)
+#[1] 161
+```
+
+In total there are 161 matches on clinic ID
+
+```
+cc_staff$country[notnull] <- LUT$country[m.idx]
+cc_staff$clinic[notnull] <- LUT$c_name[m.idx]
+cc_staff$clinic_id[notnull] <- LUT$c_id[m.idx]
+
+# verander verwerkingcode naar 'VCNM
+cc_staff$verw_code[notnull] <- "VCNM"
+```
+
+At the end there are 712 instances with code 'NM'
+
+```
+length(which(cc_staff$verw_code == 'NM'))
+# [1] 712
+```
+Save files with and without verwerkingscode
+```
+write.csv(cc_staff[,1:124], file = "data/CareCoordination/Clean-5742477-11-2-2017.csv")
+write.csv(cc_staff, file = "data/CareCoordination/Clean-5742477-11-2-2017-verwerkingcode.csv")
+
+```
+
+
+
+
+
+
+
+
+
+
