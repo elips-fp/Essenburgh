@@ -1,0 +1,121 @@
+---
+title: "Update LUT file"
+author: "Esther Lips"
+date: "6-11-2017"
+output: html_document
+---
+
+```
+library("tidyr")
+library("dplyr")
+library("readxl")
+
+```
+
+Open LUT file for matching with moc file
+
+```
+LUT <- tbl_df(read.csv2("./data/LUT.csv",
+                        skip = 3, header = TRUE, 
+                        encoding = "UTF-8", colClasses = "character"))
+LUT <- LUT[1:364,] # remove empty line at the end
+ColIndex <- c(4,6,7,9,10)
+NameVector <- c("country", "c_id", "c_name", "NoE", "NoP")
+LUT <- LUT[,ColIndex]
+colnames(LUT) <- NameVector
+
+```
+Add c_name to LUT
+
+```
+LUT$c_name2 <- ''
+LUT$c_name3 <- ''
+LUT$c_id2 <- ''
+LUT$c_id3 <- ''
+LUT <- LUT[c("country", "c_id", "c_id2","c_id3", "c_name", "c_name2", "c_name3", "NoE", "NoP")]
+```
+Open xls sheets for Portugal and Saudi Arabia
+```
+arab <- read_xlsx("CLINICS_MAMA_19102017_FERNANDO_DEF.xlsx", sheet=6, col_names=F)
+port <- read_xlsx("CLINICS_MAMA_19102017_FERNANDO_DEF.xlsx", sheet=7, col_names=F)
+
+```
+Update Saudi c_name2 in LUT
+```
+
+# add c_name2 for Saudi Arabia
+
+m <- regexpr("^\\d{4}", arab$X__2)
+cid <- regmatches(arab$X__2, m)
+
+m.idx <- match(LUT$c_id, cid, nomatch=0)
+notnull <- which(m.idx != 0)
+
+LUT$c_name2[notnull] <- arab$X__2[m.idx[notnull]]
+
+```
+Update Portugal c_name2 in LUT
+
+```
+p.idx <- match(LUT$c_id, port$X__2, nomatch=0)
+notnull <- which(p.idx != 0)
+
+LUT$c_name2[notnull] <- port$X__4[p.idx[notnull]]
+
+```
+
+## Following clinics do not yet match with c_name in LUT
+Sede Portugal       1680    is Head Quarter 
+Castelvetrano 10    1141?   Or is it different than Castelvetrano 2?
+Manuaku Auckland    3401    hieronder verwerkt
+WarszawaChocimska   1915    hieronder verwerkt
+HPA                 1609    hieronder verwerkt
+medicassisestoril   1602    hieronder verwerkt
+
+
+```
+#unique(nm_moc$Custom.Variable.5[which(nm_moc$verw_code == 'NM')],)
+[1] ""                 "Sede Portugal"    "Castelvetrano 10" "Manuaku Auckland"
+
+LUT$c_name2[which(LUT$c_id == 1141)] <- 'Castelvetrano 10'
+LUT$c_name2[which(LUT$c_id == 3401)] <- 'Manuaku Auckland'
+LUT$c_name2[which(LUT$c_id == 1915)] <- 'WarszawaChocimska'
+LUT$c_name3[which(LUT$c_id == 1609)] <- 'HPA'   # add this one as c_name3, since it already has a c_name2
+LUT$c_name3[which(LUT$c_id == 1602)] <- 'medicassisestoril' # add this one as c_name3, since it already has a c_name2
+LUT$c_name3[which(LUT$c_id == 1680)] <- 'Sede Portugal' # add this one as c_name3, since it already has a c_name2
+
+LUT$c_name2[which(LUT$c_id == 1609)] <- 'Unidade de Almada'
+
+```
+## Following clinics have different clinic_id
+custom3=Nefroplana                  1524
+custom3=Palau                       1527
+1101 ustom3=taranto                 1101
+1921custom3=Jan�ubelski            1921
+1602custom3=medicassis-estoril      1602
+1503custom3=gamapal                 1503
+1509custom3=Virgen de Montserrat    1509
+
+```
+[1] ""                                 "1602custom3=medicassis-estoril"   "1503custom3=gamapal"             
+[4] "1101 ustom3=taranto"              "custom3=Nefroplana"               "1509custom3=Virgen de Montserrat"
+[7] "1921custom3=Jan�ubelski"          "16078"                            "custom3=Palau"  
+
+
+LUT$c_id2[which(LUT$c_id == 1524)] <- 'custom3=Nefroplana'
+LUT$c_id2[which(LUT$c_id == 1527)] <- 'custom3=Palau'
+LUT$c_id2[which(LUT$c_id == 1101)] <- '1101 ustom3=taranto'
+LUT$c_id2[which(LUT$c_id == 1921)] <- '1921custom3=Jan�ubelski'
+LUT$c_id2[which(LUT$c_id == 1602)] <- '1602custom3=medicassis-estoril'
+LUT$c_id2[which(LUT$c_id == 1503)] <- '1503custom3=gamapal'
+LUT$c_id2[which(LUT$c_id == 1509)] <- '1509custom3=Virgen de Montserrat'
+LUT$c_id3[which(LUT$c_id == 1921)] <- '1921custom3=Janubelski'
+
+```
+Save LUT file
+
+LUT <- LUT[,2:8]
+
+```
+write.csv(LUT, file = "data/LUT_v2.csv", row.names = F)
+```

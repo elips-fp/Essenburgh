@@ -1,0 +1,156 @@
+---
+title: "Clean CareCoord_patients data"
+author: "Esther Lips"
+date: "3-11-2017"
+output: html_document
+---
+This markdown file describes the cleaning of the Care coordinates Patients file.
+
+STEP 0: load packages
+```
+library("tidyr")
+library("dplyr")
+```
+
+STEP 1: Read in data
+
+```
+ds1 <- tbl_df(read.csv("data/CareCoordination/RawData-Part-1-5750335-11-2-2017-1509613370943.csv", skip = 2, colClasses = "character"))
+ds2 <- tbl_df(read.csv("data/CareCoordination/RawData-Part-2-5750335-11-2-2017-1509613381559.csv", skip = 2, colClasses = "character"))
+ds3 <- tbl_df(read.csv("data/CareCoordination/RawData-Part-3-5750335-11-2-2017-1509613391980.csv", skip = 2, colClasses = "character"))
+ds4 <- tbl_df(read.csv("data/CareCoordination/RawData-Part-4-5750335-11-2-2017-1509613403465.csv", skip = 2, colClasses = "character"))
+```
+Remove first line, because it contains subquestion headers
+```
+ds1 <- ds1[-1,]
+ds2 <- ds2[-1,]
+ds3 <- ds3[-1,]
+ds4 <- ds4[-1,]
+
+```
+
+Concat all data
+
+```
+ccp_data <- rbind(ds1, ds2, ds3, ds4)
+dim(ccp_data)
+
+#[1] 17462    94
+```
+
+In total this file has 17462 instances with 94 columns
+
+/////
+
+STEP 2: match Clinic Names and Clinic IDs from MOC file with those in LUT
+
+First, Import Lookup Table file for matching with ccp file
+
+
+```
+LUT <- tbl_df(read.csv2("./data/LUT_v2.csv", sep=',', header=T, colClasses = "character"))
+
+```
+Add 'verwerkings code' column to moc file and initialize it with 'NM', which stands for 'non matching'.
+
+```
+ccp_data$verw_code <- "NM"
+
+```
+
+Match column ccp_data with the different clinic_names in LUT
+
+```
+c_name.idx <- match(tolower(ccp_data$clinic), tolower(LUT$c_name), nomatch=0)
+c_name2.idx <- match(tolower(ccp_data$clinic), tolower(LUT$c_name2), nomatch=0) 
+c_name3.idx <- match(tolower(ccp_data$clinic), tolower(LUT$c_name3), nomatch=0)
+
+notnull_nm1 <- which(c_name.idx !=0)
+notnull_nm2 <- which(c_name2.idx > 1) # skip also 1, which matches to ''
+notnull_nm3 <- which(c_name3.idx > 1) # skip also 1, which matches to ''
+
+
+length(notnull_nm1)
+#[1] 11597
+length(notnull_nm2)
+# [1] 100
+length(notnull_nm3)
+#[1] 78
+
+```
+Found in total 11597 matches on ‘c_name’ and 100 on ‘c_name2’ and 78 on ‘c_name3 ’in column ccp_data$clinic. These have to be substituted by ’c_name’ in LUT. For this matches, the verwerkings code will be changed into ‘VCNM’
+
+```
+ccp_data$country[notnull_nm1] <- LUT$country[c_name.idx]
+ccp_data$clinic[notnull_nm1] <- LUT$c_name[c_name.idx]
+ccp_data$clinic_id[notnull_nm1] <- LUT$c_id[c_name.idx]
+ccp_data$verw_code[notnull_nm1] <- "VCNM"
+
+ccp_data$country[notnull_nm2] <- LUT$country[c_name2.idx[notnull_nm2]]
+ccp_data$clinic[notnull_nm2] <- LUT$c_name[c_name2.idx[notnull_nm2]]
+ccp_data$clinic_id[notnull_nm2] <- LUT$c_id[c_name2.idx[notnull_nm2]]
+ccp_data$verw_code[notnull_nm2] <- "VCNM2"
+
+ccp_data$country[notnull_nm3] <- LUT$country[c_name3.idx[notnull_nm3]]
+ccp_data$clinic[notnull_nm3] <- LUT$c_name[c_name3.idx[notnull_nm3]]
+ccp_data$clinic_id[notnull_nm3] <- LUT$c_id[c_name3.idx[notnull_nm3]]
+ccp_data$verw_code[notnull_nm3] <- "VCNM3"
+
+```
+
+Check whether the instances that could not be matched on clinic names can be matched on clinic_id
+```
+length(which(ccp_data$verw_code == 'NM'))
+#[1] 5735
+nm.idx <- which(ccp_data$verw_code == 'NM')
+nm_ccp <- ccp_data[nm.idx,]
+nm_ccp$index <- nm.idx
+
+# match clinic_id name on subset
+cid1.idx <- match(nm_ps$clinic_id, LUT$c_id, nomatch=0)
+notnull_c1 <- which(cid1.idx !=0)
+length(notnull_c1)
+# [1] 2343
+
+cid2.idx <- match(nm_ps$clinic_id, LUT$c_id2, nomatch=0)
+notnull_c2 <- which(cid2.idx > 1)
+length(notnull_c2)
+#[1] 45
+
+```
+Found in total 2343 matches on c_id and 45 on c_id2 and changed the ‘country’, ‘clinic_id’ and ‘clinic’ to those in the LUT file. Subsequently, I overwrite the same instances in the ‘ps_data’ (little complicated, but for double check if everything goes ok).
+```
+nm_ccp$country[notnull_c1] <- LUT$country[cid1.idx]
+nm_ccp$clinic[notnull_c1] <- LUT$c_name[cid1.idx]
+nm_ccp$clinic_id[notnull_c1] <- LUT$c_id[cid1.idx]
+nm_ccp$verw_code[notnull_c1] <- "VCID1"
+
+nm_ccp$country[notnull_c2] <- LUT$country[cid2.idx[notnull_c2]]
+nm_ccp$clinic[notnull_c2] <- LUT$c_name[cid2.idx[notnull_c2]]
+nm_ccp$clinic_id[notnull_c2] <- LUT$c_id[cid2.idx[notnull_c2]]
+nm_ccp$verw_code[notnull_c2] <- "VCID2"
+
+sb.idx <- which(nm_ccp$verw_code != 'NM')
+ccp_data[nm_ccp$index[sb.idx], 8:10] <- nm_ccp[sb.idx, 8:10]
+ccp_data[nm_ccp$index[sb.idx], 95] <- nm_ccp[sb.idx, 95]
+```
+
+REcheck ‘NM’ items and match op clinic_id
+```
+
+nm_ccp2 <- ccp_data[which(ccp_data$verw_code == 'NM'),]
+length(which(ccp_data$verw_code == 'NM'))
+# [1] 3347
+
+unique(nm_ccp2$clinic_id)
+unique(nm_ccp2$clinic)
+unique(nm_ccp2$country)
+
+```
+
+
+Save files with and without verwerkingscode
+```
+write.csv(ccp_data[,1:94], file = "data/CareCoordination/Clean-5742959-11-2-2017_v2.csv")
+write.csv(ccp_data, file = "data/CareCoordination/Clean-5742959-11-2-2017-verwerkingcode_v2.csv")
+```
