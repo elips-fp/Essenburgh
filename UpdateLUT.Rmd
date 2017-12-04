@@ -15,14 +15,9 @@ library("readxl")
 Open LUT file for matching with moc file
 
 ```
-LUT <- tbl_df(read.csv2("./data/LUT.csv",
-                        skip = 3, header = TRUE, 
-                        encoding = "UTF-8", colClasses = "character"))
-LUT <- LUT[1:364,] # remove empty line at the end
-ColIndex <- c(4,6,7,9,10)
-NameVector <- c("country", "c_id", "c_name", "NoE", "NoP")
-LUT <- LUT[,ColIndex]
-colnames(LUT) <- NameVector
+
+rm(list=ls())
+
 
 ```
 Add c_name to LUT
@@ -83,7 +78,7 @@ LUT$c_name2[which(LUT$c_id == 1915)] <- 'WarszawaChocimska'
 LUT$c_name3[which(LUT$c_id == 1609)] <- 'HPA'   # add this one as c_name3, since it already has a c_name2
 LUT$c_name3[which(LUT$c_id == 1602)] <- 'medicassisestoril' # add this one as c_name3, since it already has a c_name2
 LUT$c_name3[which(LUT$c_id == 1680)] <- 'Sede Portugal' # add this one as c_name3, since it already has a c_name2
-
+LUT$c_name3[which(LUT$c_id == 1612)] <- 'CDL'
 LUT$c_name2[which(LUT$c_id == 1609)] <- 'Unidade de Almada'
 
 ```
@@ -111,11 +106,48 @@ LUT$c_id2[which(LUT$c_id == 1503)] <- '1503custom3=gamapal'
 LUT$c_id2[which(LUT$c_id == 1509)] <- '1509custom3=Virgen de Montserrat'
 LUT$c_id3[which(LUT$c_id == 1921)] <- '1921custom3=Janubelski'
 
+
+
+# 16-11: UPDATE LUT v2 with Nr Employees en Patients 
+
+LUT <- tbl_df(read.csv2("./data/LUT_v2.csv", sep=',', header=T, colClasses = "character"))
+
+ 
+library("readxl")
+update_1611 <- read_excel("./Number of patients and employees_FINAL_15112017.xlsx", skip = 3)  
+
+m.idx <- match(LUT$c_id, update_1611$clinic_id, nomatch=0)
+length(which(m.idx == 0))
+
+df1 <- data.frame(matrix(ncol = 2, nrow = length(m.idx)))
+df1[,1] <- LUT$c_id
+df1[,2] <- update_1611$clinic_id[m.idx]
+
+LUT$NoE <- update_1611$`No. Employees`[m.idx]
+LUT$NoP <- update_1611$`No. Patients`[m.idx]
+
+#14-11 
+short_names <- read_excel("Shortened clinic names_15112-17.xlsx", skip = 3) 
+
+short_names <- short_names[which(short_names$`Proposal shorter clinic name for pdf reporting` != 'NA'),]
+
+m.idx <- match(short_names$clinic_id,LUT$c_id, nomatch=0)
+notnull <- which(m.idx != 0)
+length(which(m.idx == 0))
+
+df1 <- data.frame(matrix(ncol = 4, nrow = length(m.idx)))
+df1[,1] <- LUT$c_id[m.idx]
+df1[,2] <- LUT$c_name[m.idx]
+df1[,3] <- short_names$clinic_id[notnull]
+df1[,4] <- short_names$`Proposal shorter clinic name for pdf reporting`[notnull]
+
+LUT$c_name[m.idx] <- short_names$`Proposal shorter clinic name for pdf reporting`[notnull]
+
 ```
+
 Save LUT file
 
-LUT <- LUT[,2:8]
 
 ```
-write.csv(LUT, file = "data/LUT_v2.csv", row.names = F)
+write.csv(LUT, file = "data/LUT_v3.csv", row.names = F)
 ```
