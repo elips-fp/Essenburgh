@@ -1,0 +1,158 @@
+---
+title: "Calculate mean questionaires per country and clinic"
+author: "Esther Lips"
+date: "27-11-2017"
+output: html_document
+---
+
+This document describes the steps taken to get the calculate the mean answers per question per month per country and clinic. 
+
+1) Read data & discard the responses with sequence ID > 1
+
+
+```{r load Packages}
+library("tidyr")
+library("dplyr")
+rm(list=ls())
+```
+
+```{r read data}
+ccs_hist <- tbl_df(read.csv("data/diaverum_staff_clean_data_CCS_nov2017.csv", sep=',', header=T, skip=2, colClasses = "character"))
+dim(ccs_hist)
+# [1] 6052   69
+
+LUT <- tbl_df(read.csv("./data/LUT_v3.csv", sep=',', header=T, colClasses = "character"))
+```
+
+Global + countries data: Get (mean)Scores for Qlik report 
+```{r get meanScores for Qlik report}
+# 1) countries
+# 2) nr_reviews
+# 3) reponse_rate
+# 4) avg_person_centered_care, col= 11:15
+# 5) avg_service_coord,  col= 20:26
+# 6) avg_professional_coord, col= 27:33
+# 7) avg_organisational_coord col= 34:37
+# 8) avg_community_centred_care, col= 16:19
+# 9) avg_healthcare_policy, col= 38:40
+# 10) avg_technical_competence, col= 41:50
+# 11) avg_cultural_competence, col= 51:58
+# 12) avg_adaptive_reserve, col= 59:65
+# 13) avg_cc_internal, col= 66
+# 14) avg_cc_external, col= 67
+# 15) mean_internal_external, mean([66:67])
+# 16) avg_person_centered_care*mean_internal_external
+# 17) avg_service_coord*mean_internal_external
+# 18) avg_professional_coord*mean_internal_external
+# 19) avg_organisational_coord*mean_internal_external
+# 20) avg_community_centred_care*mean_internal_external
+# 21) avg_healthcare_policy*mean_internal_external
+# 22) avg_technical_competence*mean_internal_external
+# 23) avg_cultural_competence*mean_internal_external
+
+un_countries <- unique(ccs_hist$country)
+
+df_countries <- data.frame(matrix(ncol = 23, nrow = length(un_countries)+1))
+names(df_countries) <- c("Country","response_#","response_%", "avg_person_centered_care", "avg_service_coord", "avg_professional_coord", "avg_organisational_coord", "avg_community_centred_care", "avg_healthcare_policy", "avg_technical_competence", "avg_cultural_competence", "avg_adaptive_reserve", "avg_cc_internal", "avg_cc_internal", "mean_internal_external", "avg_person_centered_care*mean_internal_external", "avg_service_coord*mean_internal_external", "avg_professional_coord*mean_internal_external", "avg_organisational_coord*mean_internal_external", "avg_community_centred_care*mean_internal_external", "avg_healthcare_policy*mean_internal_external", "avg_technical_competence*mean_internal_external", "avg_cultural_competence*mean_internal_external")
+
+for(c in 1:length(un_countries))
+{
+  c_data <- ccs_hist[which(ccs_hist$country == un_countries[c]),]
+  c_lut <- sum(as.numeric(LUT$NoE[which(LUT$country == un_countries[c])]))
+  
+  df_countries[c,1] <- un_countries[c]
+  df_countries[c,2] <- nrow(c_data)
+  df_countries[c,3] <- (nrow(c_data)/c_lut)*100
+  df_countries[c,4] <- mean(data.matrix(c_data[,11:15]), na.rm=T) #avg_person_centered_care
+  df_countries[c,5] <- mean(data.matrix(c_data[,20:26]), na.rm=T) # avg_service_coord
+  df_countries[c,6] <- mean(data.matrix(c_data[,27:33]), na.rm=T) # avg_professional_coord
+  df_countries[c,7] <- mean(data.matrix(c_data[,34:37]), na.rm=T) # avg_organisational_coord
+  df_countries[c,8] <- mean(data.matrix(c_data[,16:19]), na.rm=T) # avg_community_centred_care
+  df_countries[c,9] <- mean(data.matrix(c_data[,38:40]), na.rm=T) # avg_healthcare_policy
+  df_countries[c,10] <- mean(data.matrix(c_data[,41:50]), na.rm=T) # avg_technical_competence
+  df_countries[c,11] <- mean(data.matrix(c_data[,51:58]), na.rm=T) # avg_cultural_competence
+  df_countries[c,12] <- mean(data.matrix(c_data[,59:65]), na.rm=T) # avg_adaptive_reserve
+  df_countries[c,13] <- mean(data.matrix(c_data[,66]), na.rm=T)-1 # avg_cc_internal
+  df_countries[c,14] <- mean(data.matrix(c_data[,67]), na.rm=T)-1 # avg_cc_external
+  df_countries[c,15] <- mean(as.numeric(df_countries[c,13:14]), na.rm=T) # mean internal_external
+  df_countries[c,16] <- as.numeric(df_countries[c,4])*as.numeric(df_countries[c,15])
+  df_countries[c,17] <- as.numeric(df_countries[c,5])*as.numeric(df_countries[c,15])
+  df_countries[c,18] <- as.numeric(df_countries[c,6])*as.numeric(df_countries[c,15])
+  df_countries[c,19] <- as.numeric(df_countries[c,7])*as.numeric(df_countries[c,15])
+  df_countries[c,20] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,15])
+  df_countries[c,21] <- as.numeric(df_countries[c,9])*as.numeric(df_countries[c,15])
+  df_countries[c,22] <- as.numeric(df_countries[c,10])*as.numeric(df_countries[c,15])
+  df_countries[c,23] <- as.numeric(df_countries[c,11])*as.numeric(df_countries[c,15])
+}
+
+df_countries[22,1] <- "Global"
+df_countries[22,2] <- nrow(ccs_hist)
+df_countries[22,3] <- (nrow(ccs_hist)/sum(as.numeric(LUT$NoE)))*100
+df_countries[22,4] <- mean(data.matrix(ccs_hist[,11:15]), na.rm=T) #avg_person_centered_care
+df_countries[22,5] <- mean(data.matrix(ccs_hist[,20:26]), na.rm=T) # avg_service_coord
+df_countries[22,6] <- mean(data.matrix(ccs_hist[,27:33]), na.rm=T) # avg_professional_coord
+df_countries[22,7] <- mean(data.matrix(ccs_hist[,34:37]), na.rm=T) # avg_organisational_coord
+df_countries[22,8] <- mean(data.matrix(ccs_hist[,16:19]), na.rm=T) # avg_community_centred_care
+df_countries[22,9] <- mean(data.matrix(ccs_hist[,38:40]), na.rm=T) # avg_healthcare_policy
+df_countries[22,10] <- mean(data.matrix(ccs_hist[,41:50]), na.rm=T) # avg_technical_competence
+df_countries[22,11] <- mean(data.matrix(ccs_hist[,51:58]), na.rm=T) # avg_cultural_competence
+df_countries[22,12] <- mean(data.matrix(ccs_hist[,59:65]), na.rm=T) # avg_adaptive_reserve
+df_countries[22,13] <- mean(data.matrix(ccs_hist[,66]), na.rm=T)-1 # avg_cc_internal
+df_countries[22,14] <- mean(data.matrix(ccs_hist[,67]), na.rm=T)-1 # avg_cc_external
+df_countries[22,15] <- mean(as.numeric(df_countries[22,13:14]), na.rm=T) # mean internal_external
+df_countries[22,16] <- as.numeric(df_countries[22,4])*as.numeric(df_countries[22,15])
+df_countries[22,17] <- as.numeric(df_countries[22,5])*as.numeric(df_countries[22,15])
+df_countries[22,18] <- as.numeric(df_countries[22,6])*as.numeric(df_countries[22,15])
+df_countries[22,19] <- as.numeric(df_countries[22,7])*as.numeric(df_countries[22,15])
+df_countries[22,20] <- as.numeric(df_countries[22,8])*as.numeric(df_countries[22,15])
+df_countries[22,21] <- as.numeric(df_countries[22,9])*as.numeric(df_countries[22,15])
+df_countries[22,22] <- as.numeric(df_countries[22,10])*as.numeric(df_countries[22,15])
+df_countries[22,23] <- as.numeric(df_countries[22,11])*as.numeric(df_countries[22,15])
+
+write.csv(df_countries, file = "data/CCS_meanQuestionare_per_country.csv" , row.names=F )
+
+```
+
+Clinic data: get (mean)Scores for comparison with Qlik report
+```{r meanScores per clinic}
+df_clinics <- data.frame(matrix(ncol = 25, nrow = length(un_countries)+1))
+names(df_clinics) <- c("Country","clinic_id" ,"clinic","response_#","response_%", "avg_person_centered_care", "avg_service_coord", "avg_professional_coord", "avg_organisational_coord", "avg_community_centred_care", "avg_healthcare_policy", "avg_technical_competence", "avg_cultural_competence", "avg_adaptive_reserve", "avg_cc_internal", "avg_cc_internal", "mean_internal_external", "avg_person_centered_care*mean_internal_external", "avg_service_coord*mean_internal_external", "avg_professional_coord*mean_internal_external", "avg_organisational_coord*mean_internal_external", "avg_community_centred_care*mean_internal_external", "avg_healthcare_policy*mean_internal_external", "avg_technical_competence*mean_internal_external", "avg_cultural_competence*mean_internal_external")
+
+un_clinics <- unique(ccs_hist$clinic_id)
+
+for(cl in 1:length(un_clinics))
+{
+  #print(un_clinics[cl])
+  cl_data <- ccs_hist[which(ccs_hist$clinic_id == un_clinics[cl]),]
+  c_lut <- sum(as.numeric(LUT$NoE[which(LUT$c_id == un_clinics[cl])]))
+  
+  df_clinics[cl,1] <- cl_data[1,10]
+  df_clinics[cl,2] <- cl_data[1,8]
+  df_clinics[cl,3] <- cl_data[1,9]
+  df_clinics[cl,4] <- nrow(cl_data)
+  df_clinics[cl,5] <- (nrow(cl_data)/c_lut)*100
+  df_clinics[cl,6] <- mean(data.matrix(cl_data[,11:15]), na.rm=T) #avg_person_centered_care
+  df_clinics[cl,7] <- mean(data.matrix(cl_data[,20:26]), na.rm=T) # avg_service_coord
+  df_clinics[cl,8] <- mean(data.matrix(cl_data[,27:33]), na.rm=T) # avg_professional_coord
+  df_clinics[cl,9] <- mean(data.matrix(cl_data[,34:37]), na.rm=T) # avg_organisational_coord
+  df_clinics[cl,10] <- mean(data.matrix(cl_data[,16:19]), na.rm=T) # avg_community_centred_care
+  df_clinics[cl,11] <- mean(data.matrix(cl_data[,38:40]), na.rm=T) # avg_healthcare_policy
+  df_clinics[cl,12] <- mean(data.matrix(cl_data[,41:50]), na.rm=T) # avg_technical_competence
+  df_clinics[cl,13] <- mean(data.matrix(cl_data[,51:58]), na.rm=T) # avg_cultural_competence
+  df_clinics[cl,14] <- mean(data.matrix(cl_data[,59:65]), na.rm=T) # avg_adaptive_reserve
+  df_clinics[cl,15] <- mean(data.matrix(cl_data[,66]), na.rm=T)-1 # avg_cc_internal
+  df_clinics[cl,16] <- mean(data.matrix(cl_data[,67]), na.rm=T)-1 # avg_cc_external
+  df_clinics[cl,17] <- mean(as.numeric(df_clinics[cl,15:16]), na.rm=T) # mean internal_external
+  df_clinics[cl,18] <- as.numeric(df_clinics[cl,6])*as.numeric(df_clinics[cl,17])
+  df_clinics[cl,19] <- as.numeric(df_clinics[cl,7])*as.numeric(df_clinics[cl,17])
+  df_clinics[cl,20] <- as.numeric(df_clinics[cl,8])*as.numeric(df_clinics[cl,17])
+  df_clinics[cl,21] <- as.numeric(df_clinics[cl,9])*as.numeric(df_clinics[cl,17])
+  df_clinics[cl,22] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,17])
+  df_clinics[cl,23] <- as.numeric(df_clinics[cl,11])*as.numeric(df_clinics[cl,17])
+  df_clinics[cl,24] <- as.numeric(df_clinics[cl,12])*as.numeric(df_clinics[cl,17])
+  df_clinics[cl,25] <- as.numeric(df_clinics[cl,13])*as.numeric(df_clinics[cl,17])
+}
+
+df_clinics <- df_clinics[order(df_clinics[,1]),]
+write.csv(df_clinics, file = "data/CCS_meanQuestionare_per_clinic.csv" , row.names=F )
+```

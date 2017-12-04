@@ -1,0 +1,209 @@
+---
+title: "Clean CareCoord_patients data"
+author: "Esther Lips"
+date: "3-11-2017"
+output: html_document
+---
+This markdown file describes the cleaning of the Care coordinates Patients file.
+
+STEP 0: load packages
+```{r Load packages}
+library("tidyr")
+library("dplyr")
+rm(list=ls())
+```
+
+STEP 1: Read in data
+
+```{r Read data}
+ps1 <- tbl_df(read.csv("data/RawData-PatientSatisfaction-11-13-2017/RawData-Part-1-5783064-11-13-2017-1510643044891.csv", skip = 2, colClasses = "character"))
+ps2 <- tbl_df(read.csv("data/RawData-PatientSatisfaction-11-13-2017/RawData-Part-2-5783064-11-13-2017-1510643091066.csv", skip = 2, colClasses = "character"))
+ps3 <- tbl_df(read.csv("data/RawData-PatientSatisfaction-11-13-2017/RawData-Part-3-5783064-11-13-2017-1510643136856.csv", skip = 2, colClasses = "character"))
+ps4 <- tbl_df(read.csv("data/RawData-PatientSatisfaction-11-13-2017/RawData-Part-4-5783064-11-13-2017-1510643181827.csv", skip = 2, colClasses = "character"))
+ps5 <- tbl_df(read.csv("data/RawData-PatientSatisfaction-11-13-2017/RawData-Part-5-5783064-11-13-2017-1510643224551.csv", skip = 2, colClasses = "character"))
+
+# read lut file
+LUT <- tbl_df(read.csv2("./data/LUT_v2.csv", sep=',', header=T, colClasses = "character"))
+
+# initialize header
+head <- read.table('data/RawData-PatientSatisfaction-11-13-2017/RawData-Part-1-5783064-11-13-2017-1510643044891.csv', nrows = 2, header = FALSE, sep =',', stringsAsFactors = FALSE)
+
+# concat data
+ps_raw <- rbind(ps1, ps2, ps3, ps4, ps5)
+
+# remove id with seq...number not 1
+ps_raw <- ps_raw[which(ps_raw$Seq..Number == 1),]
+
+# add columns to data file
+ps_raw$rowMeans <- ""
+ps_raw$patient_type <- ""
+ps_raw$verw_code <- "NM"
+
+print(paste("In total this file has", nrow(ps_raw)," responses."))
+```
+
+```{r define PatientTypes}
+ps_raw$patient_type[which(ps_raw[,36] != '')] <- 'HD'
+ps_raw$patient_type[which(ps_raw[,43] != '')] <- 'Home HD/PD'
+ps_raw$patient_type[which(ps_raw[,50] != '')] <- "Clinic Consult"
+```
+
+Match column ps_raw with the different clinic_names in LUT
+
+```{r Match Clinic Names}
+c_name.idx <- match(tolower(ps_raw$clinic), tolower(LUT$c_name), nomatch=0)
+c_name2.idx <- match(tolower(ps_raw$clinic), tolower(LUT$c_name2), nomatch=0) 
+c_name3.idx <- match(tolower(ps_raw$clinic), tolower(LUT$c_name3), nomatch=0)
+
+notnull_nm1 <- which(c_name.idx !=0)
+notnull_nm2 <- which(c_name2.idx > 1) # skip also 1, which matches to ''
+notnull_nm3 <- which(c_name3.idx > 1) # skip also 1, which matches to ''
+
+nr_names = length(notnull_nm1)+length(notnull_nm2)+length(notnull_nm3)
+
+print(paste("In total",nr_names,"matches on ClinicNames are found."))
+```
+```{r Correct ClinicNames}
+ps_raw$country[notnull_nm1] <- LUT$country[c_name.idx]
+ps_raw$clinic[notnull_nm1] <- LUT$c_name[c_name.idx]
+ps_raw$clinic_id[notnull_nm1] <- LUT$c_id[c_name.idx]
+ps_raw$verw_code[notnull_nm1] <- "VCNM"
+
+ps_raw$country[notnull_nm2] <- LUT$country[c_name2.idx[notnull_nm2]]
+ps_raw$clinic[notnull_nm2] <- LUT$c_name[c_name2.idx[notnull_nm2]]
+ps_raw$clinic_id[notnull_nm2] <- LUT$c_id[c_name2.idx[notnull_nm2]]
+ps_raw$verw_code[notnull_nm2] <- "VCNM"
+
+ps_raw$country[notnull_nm3] <- LUT$country[c_name3.idx[notnull_nm3]]
+ps_raw$clinic[notnull_nm3] <- LUT$c_name[c_name3.idx[notnull_nm3]]
+ps_raw$clinic_id[notnull_nm3] <- LUT$c_id[c_name3.idx[notnull_nm3]]
+ps_raw$verw_code[notnull_nm3] <- "VCNM"
+```
+
+Check whether the instances that could not be matched on clinic names can be matched on clinic_id
+
+```{r Match Clinic Names}
+#length(which(ps_raw$verw_code == 'NM'))
+#[1] 6312
+nm.idx <- which(ps_raw$verw_code == 'NM')
+nm_ps_raw <- ps_raw[nm.idx,]
+nm_ps_raw$index <- nm.idx
+
+# match clinic_id name on subset
+cid1.idx <- match(nm_ps_raw$clinic_id, LUT$c_id, nomatch=0)
+notnull_c1 <- which(cid1.idx !=0)
+#length(notnull_c1)
+# [1] 3943
+
+cid2.idx <- match(nm_ps_raw$clinic_id, LUT$c_id2, nomatch=0)
+notnull_c2 <- which(cid2.idx > 1)
+#length(notnull_c2)
+#[1] 90
+
+nr_names = length(notnull_c1)+length(notnull_c2)
+
+print(paste("In total",nr_names,"matches on ClinicIDs are found."))
+```
+
+```{r Correct ClinicIDs}
+nm_ps_raw$country[notnull_c1] <- LUT$country[cid1.idx]
+nm_ps_raw$clinic[notnull_c1] <- LUT$c_name[cid1.idx]
+nm_ps_raw$clinic_id[notnull_c1] <- LUT$c_id[cid1.idx]
+nm_ps_raw$verw_code[notnull_c1] <- "VCID"
+
+
+nm_ps_raw$country[notnull_c2] <- LUT$country[cid2.idx[notnull_c2]]
+nm_ps_raw$clinic[notnull_c2] <- LUT$c_name[cid2.idx[notnull_c2]]
+nm_ps_raw$clinic_id[notnull_c2] <- LUT$c_id[cid2.idx[notnull_c2]]
+nm_ps_raw$verw_code[notnull_c2] <- "VCID"
+
+sb.idx <- which(nm_ps_raw$verw_code != 'NM')
+ps_raw[nm_ps_raw$index[sb.idx], 8:10] <- nm_ps_raw[sb.idx, 8:10]
+ps_raw[nm_ps_raw$index[sb.idx], 63] <- nm_ps_raw[sb.idx, 63]
+
+```
+
+Correct country names and check matches
+
+```{r correct CountryNames}
+#length(which(ps_raw$verw_code == 'NM'))
+# 2279
+#length(which(ps_raw$verw_code == 'VCID'))
+#[1] 4033
+#length(which(ps_raw$verw_code == 'VCIP'))
+#[1] 0
+#length(which(ps_raw$verw_code == 'VCNM'))
+# [1] 16262
+
+# substitute all variances on saudi arabia to 'Saudi Arabia'
+ps_raw$country <- sub("^saudi(.*)",'Saudi Arabia', ps_raw$country, ignore.case = TRUE)
+
+# substitute all variances on New Zealand to 'New Zealand'
+ps_raw$country <- sub("^New(.*)",'New Zealand', ps_raw$country, ignore.case = TRUE)
+
+# substitute all variances on portugal to 'Portugal'
+ps_raw$country <- sub("^portugal(.*)",'Portugal', ps_raw$country, ignore.case = TRUE)
+
+# substitute all variances on portugal to 'Italy'
+ps_raw$country <- sub("^italy(.*)",'Italy', ps_raw$country, ignore.case = TRUE)
+
+# substitute all variances on portugal to 'Kazakhstan'
+ps_raw$country <- sub("^kazas(.*)",'Kazakhstan', ps_raw$country, ignore.case = TRUE)
+
+ps_raw$verw_code <- as.factor(ps_raw$verw_code)
+ps_raw$country <- as.factor(ps_raw$country)
+table(ps_raw$country, ps_raw$verw_code)
+```
+14-11 Update ClinicNames with short names
+
+```{r Change long clinicNames}
+update_names <- tbl_df(read.csv2("./data/LUT_v3.csv", sep=',', header=T, colClasses = "character"))
+
+c.idx <- match(ps_raw$clinic_id, update_names$c_id, nomatch=0)
+notnull <- which(c.idx != 0)
+
+df <- data.frame(matrix(ncol = 4, nrow = length(notnull)))
+df[,1] <- ps_raw$clinic_id[notnull]
+df[,2] <- ps_raw$clinic[notnull]
+df[,3] <- update_names$c_id[c.idx]
+df[,4] <- update_names$c_name[c.idx]
+
+ps_raw$clinic[notnull] <- update_names$c_name[c.idx]
+
+# check whether procedure went ok
+#ps_raw$clinic[which(ps_raw$clinic_id == 1502)]
+```
+
+
+Next: Add rowMeans
+
+```{r add RowMeans}
+ps_Q <- cbind(ps_raw[,36:41], ps_raw[,43:48], ps_raw[,50:55])
+ps_Q <- data.matrix(ps_Q)
+rowmeans <- rowMeans(ps_Q, na.rm=T)
+
+ps_raw$rowMeans <- rowmeans
+```
+
+Save files
+
+```{r Save Files}
+# make header
+header <- mat.or.vec(nrow(head), ncol(ps_raw))
+header <- cbind(head, header)
+header <- rbind(header, names(ps_raw))
+header[1,which(header[1,] == 0)] <- ''
+header[2,which(header[2,] == 0)] <- ''
+
+ps_raw <- ps_raw[which(ps_raw$verw_code != 'NM'),]
+#dim(ps_raw)
+#[1] 20295    63
+
+write.table(header[,1:61], file = "data/FINAL/PS/Clean-5783064-11-14-2017.csv", row.names=F, col.names=F,fileEncoding = "UTF-8",sep=',')
+write.table(ps_raw[,1:61], file = "data/FINAL/PS/Clean-5783064-11-14-2017.csv", row.names=F, col.names=F,fileEncoding = "UTF-8", append=T, sep=',')
+
+write.table(header[,1:ncol(ps_raw)], file = "data/FINAL/PS/Clean-5783064-11-14-2017-verwerkingcode.csv", row.names=F, col.names=F,fileEncoding = "UTF-8",sep=',')
+write.table(ps_raw, file = "data/FINAL/PS/Clean-5783064-11-14-2017-verwerkingcode.csv", row.names=F, col.names=F,fileEncoding = "UTF-8", append=T, sep=',')
+
+print(paste("Saved Qlik file as: data/FINAL/MOC/Clean-5783064-11-14-2017.csv"))
+```

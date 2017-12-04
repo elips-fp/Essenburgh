@@ -1,0 +1,301 @@
+---
+title: "Calculate mean questionaires per country and clinic"
+author: "Esther Lips"
+date: "24-11-2017"
+output: html_document
+---
+
+This document describes the steps taken to get the calculate the mean answers per question per month per country and clinic. 
+
+1) Read data & discard the responses with sequence ID > 1
+
+```{r load packages}
+rm(list=ls())
+library("tidyr")
+library("dplyr")
+library("readxl")
+source("R_functions/get_deviation.R")
+
+```
+
+```{r read data}
+ccp_hist <- tbl_df(read.csv("data/diaverum_patients_clean_data_CCP_nov2017.csv", sep=',', header=T,skip=2 ,colClasses = "character"))
+dim(ccp_hist)
+#[1] 17512    54
+
+LUT <- tbl_df(read.csv("./data/LUT_v3.csv", sep=',', header=T, colClasses = "character"))
+
+```
+Get meanScores for Global + countries data
+```{r Calculate Global and Country Scores }
+# 1) countries
+# 2) nr_reviews
+# 3) reponse_rate
+# 4) avg_person_centred, col=11:16
+# 5) avg_service_coord, col=17:22
+# 6) avg_professional_coord, col=23:29
+# 7) avg_organisational_coord, col=30:35
+# 8) avg overall care coordination, col=36
+# 9) avg overall_care_coord * avg person centred, 
+# 10) avg overall_care_coord * avg_service_coord, 
+# 11) avg overall_care_coord * avg_professional_coord
+# 12) avg overall_care_coord * avg_organisational_coord
+# 13) nr_endocrin length(col[,40])
+# 14) ratio_endocrin
+# 15) sd_endocrin
+# 16) avg_endocrin mean(col[,40])
+# 17) nr_cardio length(col[,41])
+# 18) ratio_cardio
+# 19) sd_cardio
+# 20) avg_cardio mean(col[,41])
+# 21) nr_general_pract length(col[,42])
+# 22) ratio_GP
+# 23) sd_GP
+# 24) avg_general_pract mean(col[,42])
+# 25) nr_dietician length(col[,43])
+# 26) ratio_dietician
+# 27) sd_dietician
+# 28) avg_dietician mean(col[,43])
+# 29) nr_pharm length(col[,44])
+# 30) ratio_pharm
+# 31) sd_pharm
+# 32) avg_parm mean(col[,44])
+# 33) nr_psych length(col[,45])
+# 34) ratio_psych
+# 35) sd_psych
+# 36) avg_psych mean(col[,45])
+# 37) nr_social_worker length(col[,46])
+# 38) ratio_social_workder
+# 39) sd_social_worker
+# 40) avg_social_worker mean(col[,46])
+# 41) nr_diabetic_nurse length(col[,47])
+# 42) ratio_diabetic
+# 43) sd_diabetic
+# 44) avg_diabetic_nurse mean(col[,47])
+
+
+un_countries <- unique(ccp_hist$country)
+
+df_countries <- data.frame(matrix(ncol = 52, nrow = length(un_countries)+1))
+names(df_countries) <- c("Country","response_#","response_%","avg_pers_c","avg_serv_coord","avg_prof_coord","avg_organ_coord","avg_overall_coord","avg_overall_coord*avg_pers_c","avg_overall_coord*avg_prof_coord","avg_overall_coord*avg_serv_coord","avg_overall_coord*avg_organ_coord","nr_endocrin","ratio_endocrin","sd_endocrin","avg_endocrin","nr_cardio","ratio_cardio","sd_cardio","avg_cardio","nr_general_pract","ratio_general_pract","sd_general_pract","avg_general_pract","nr_dietician","ratio_dietician","sd_dietician","avg_dietician","nr_pharm","ratio_pharm","sd_pharm","avg_pharm","nr_psych","ratio_psych","sd_psych","avg_psych","nr_social_worker","ratio_social_worker","sd_social_worker","avg_social_worker","nr_diabetic_nurse","ratio_diabetic_nurse","sd_diabetic_nurse","avg_diabetic_nurse", "avg_overall_coord*avg_endocrin", "avg_overall_coord*avg_cardio","avg_overall_coord*avg_general_pract","avg_overall_coord*avg_dietician","avg_overall_coord*avg_pharm","avg_overall_coord*avg_psych","avg_overall_coord*avg_social_worker","avg_overall_coord*avg_diabetic_nurse")
+
+for(c in 1:length(un_countries))
+{
+  c_data <- ccp_hist[which(ccp_hist$country == un_countries[c]),]
+  c_lut <- sum(as.numeric(LUT$NoP[which(LUT$country == un_countries[c])]))
+  
+  df_countries[c,1] <- un_countries[c]
+  df_countries[c,2] <- nrow(c_data)
+  df_countries[c,3] <- (nrow(c_data)/c_lut)*100
+  df_countries[c,4] <- mean(data.matrix(c_data[,11:16]), na.rm=T) # avg  person centred
+  df_countries[c,5] <- mean(data.matrix(c_data[,17:22]), na.rm=T) # avg service coord
+  df_countries[c,6] <- mean(data.matrix(c_data[,23:29]), na.rm=T) # avg professional coord
+  df_countries[c,7] <- mean(data.matrix(c_data[,30:35]), na.rm=T) # avg organisational coord
+  df_countries[c,8] <- (mean(data.matrix(c_data[,36]), na.rm=T)-1) # avg overall care coord
+  df_countries[c,9] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,4]) # avg overall care coord * avg  person centred
+  df_countries[c,10] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,5]) # avg overall care coord * avg service coord
+  df_countries[c,11] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,6]) # avg overall care coord * avg professional coord
+  df_countries[c,12] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,7]) # avg overall care coord * avg organisational coord
+  df_countries[c,13] <- length(which(c_data[,40] != '')) # nr_endocrin length(col[,40])
+  df_countries[c,14] <- length(which(c_data[,40] != ''))/nrow(c_data)
+  df_countries[c,15] <- 0
+  df_countries[c,16] <- mean(data.matrix(c_data[,40]), na.rm=T) # avg_endocrin 
+  df_countries[c,17] <- length(which(c_data[,41] != ''))
+  df_countries[c,18] <- length(which(c_data[,41] != ''))/nrow(c_data)
+  df_countries[c,19] <- 0
+  df_countries[c,20] <- mean(data.matrix(c_data[,41]), na.rm=T) # avg_cardio
+  df_countries[c,21] <- length(which(c_data[,42] != ''))
+  df_countries[c,22] <- length(which(c_data[,42] != ''))/nrow(c_data)
+  df_countries[c,23] <- 0
+  df_countries[c,24] <- mean(data.matrix(c_data[,42]), na.rm=T) # avg_general_pract
+  df_countries[c,25] <- length(which(c_data[,43] != ''))
+  df_countries[c,26] <- length(which(c_data[,43] != ''))/nrow(c_data)
+  df_countries[c,27] <- 0
+  df_countries[c,28] <- mean(data.matrix(c_data[,43]), na.rm=T) # avg_dietician
+  df_countries[c,29] <- length(which(c_data[,44] != ''))
+  df_countries[c,30] <- length(which(c_data[,44] != ''))/nrow(c_data)
+  df_countries[c,31] <- 0
+  df_countries[c,32] <- mean(data.matrix(c_data[,44]), na.rm=T) # avg_parm
+  df_countries[c,33] <- length(which(c_data[,45] != ''))
+  df_countries[c,34] <- length(which(c_data[,45] != ''))/nrow(c_data)
+  df_countries[c,35] <- 0
+  df_countries[c,36] <- mean(data.matrix(c_data[,45]), na.rm=T) # avg_psych
+  df_countries[c,37] <- length(which(c_data[,46] != ''))
+  df_countries[c,38] <- length(which(c_data[,46] != ''))/nrow(c_data)
+  df_countries[c,39] <- 0
+  df_countries[c,40] <- mean(data.matrix(c_data[,46]), na.rm=T) # avg_social_worker
+  df_countries[c,41] <- length(which(c_data[,47] != ''))
+  df_countries[c,42] <- length(which(c_data[,47] != ''))/nrow(c_data)
+  df_countries[c,43] <- 0
+  df_countries[c,44] <- mean(data.matrix(c_data[,47]), na.rm=T) # avg_diabetic_nurse
+  df_countries[c,45] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,16])
+  df_countries[c,46] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,20])
+  df_countries[c,47] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,24])
+  df_countries[c,48] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,28])
+  df_countries[c,49] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,32])
+  df_countries[c,50] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,36])
+  df_countries[c,51] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,40])
+  df_countries[c,52] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,44])
+}
+
+df_countries[20,1] <- "Global"
+df_countries[20,2] <- nrow(ccp_hist)
+df_countries[20,3] <- (nrow(ccp_hist)/sum(as.numeric(LUT$NoP)))*100
+df_countries[20,4] <- mean(data.matrix(ccp_hist[,11:16]), na.rm=T) # avg person centred
+df_countries[20,5] <- mean(data.matrix(ccp_hist[,17:22]), na.rm=T) # avg service coord
+df_countries[20,6] <- mean(data.matrix(ccp_hist[,23:29]), na.rm=T) # avg professional coord
+df_countries[20,7] <- mean(data.matrix(ccp_hist[,30:35]), na.rm=T) # avg organisational coord
+df_countries[20,8] <- mean(data.matrix(ccp_hist[,36]), na.rm=T)-1 # avg overall care coord
+df_countries[20,9] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,4]) # avg overall care coord * avg person centred
+df_countries[20,10] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,5]) # avg overall care coord * avg service coord
+df_countries[20,11] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,6]) # avg overall care coord * avg professional coord
+df_countries[20,12] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,7]) # avg overall care coord * avg organisational coord
+df_countries[20,13] <- length(which(ccp_hist[,40] != '')) # nr_endocrin length(col[,40])
+df_countries[20,14] <- length(which(ccp_hist[,40] != ''))/nrow(ccp_hist) # ratio
+df_countries[20,15] <- 0
+df_countries[20,16] <- mean(data.matrix(ccp_hist[,40]), na.rm=T) # avg_endocrin mean(data.matrix(ccp_hist[,40]), na.rm=T)
+df_countries[20,17] <- length(which(ccp_hist[,41] != ''))
+df_countries[20,18] <- length(which(ccp_hist[,41] != ''))/nrow(ccp_hist) # ratio
+df_countries[20,19] <- 0
+df_countries[20,20] <- mean(data.matrix(ccp_hist[,41]), na.rm=T)
+df_countries[20,21] <- length(which(ccp_hist[,42] != ''))
+df_countries[20,22] <- length(which(ccp_hist[,42] != ''))/nrow(ccp_hist) # ratio
+df_countries[20,23] <- 0
+df_countries[20,24] <- mean(data.matrix(ccp_hist[,42]), na.rm=T)
+df_countries[20,25] <- length(which(ccp_hist[,43] != ''))
+df_countries[20,26] <- length(which(ccp_hist[,43] != ''))/nrow(ccp_hist) # ratio
+df_countries[20,27] <- 0
+df_countries[20,28] <- mean(data.matrix(ccp_hist[,43]), na.rm=T)
+df_countries[20,29] <- length(which(ccp_hist[,44] != ''))
+df_countries[20,30] <- length(which(ccp_hist[,44] != ''))/nrow(ccp_hist) # ratio
+df_countries[20,31] <- 0
+df_countries[20,32] <- mean(data.matrix(ccp_hist[,44]), na.rm=T)
+df_countries[20,33] <- length(which(ccp_hist[,45] != ''))
+df_countries[20,34] <- length(which(ccp_hist[,45] != ''))/nrow(ccp_hist) # ratio
+df_countries[20,35] <- 0
+df_countries[20,36] <- mean(data.matrix(ccp_hist[,45]), na.rm=T)
+df_countries[20,37] <- length(which(ccp_hist[,46] != ''))
+df_countries[20,38] <- length(which(ccp_hist[,46] != ''))/nrow(ccp_hist)
+df_countries[20,39] <- 0
+df_countries[20,40] <- mean(data.matrix(ccp_hist[,46]), na.rm=T)
+df_countries[20,41] <- length(which(ccp_hist[,47] != ''))
+df_countries[20,42] <- length(which(ccp_hist[,47] != ''))/nrow(ccp_hist)
+df_countries[20,43] <- 0
+df_countries[20,44] <- mean(data.matrix(ccp_hist[,47]), na.rm=T)
+df_countries[20,45] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,16])
+df_countries[20,46] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,20])
+df_countries[20,47] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,24])
+df_countries[20,48] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,28])
+df_countries[20,49] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,32])
+df_countries[20,50] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,36])
+df_countries[20,51] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,40])
+df_countries[20,52] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,44])
+df_countries[20,9] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,4]) # avg overall care coord * avg person centred
+df_countries[20,10] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,5]) # avg overall care coord * avg service coord
+df_countries[20,11] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,6]) # avg overall care coord * avg professional coord
+df_countries[20,12] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,7]) # avg overall care coord * avg organisational coord
+
+# identify countries that deviate from mean
+col_ratio <- c(14,18,22,26,30,34,38,42)
+
+for(i in 1:length(col_ratio))
+{
+  col = col_ratio[i]
+  ratio <- as.numeric(df_countries[,col])
+  log_ratio <- log(ratio)
+  is.na(log_ratio) <- sapply(log_ratio, is.infinite)
+  dev <- get_deviations(log_ratio)
+  df_countries[,col+1] <- dev
+}
+
+# save data
+write.csv(df_countries, file = "data/CCP_controleGetallen_per_country_2017.csv" , row.names=F )
+```
+
+Get meanScores for clinic data
+```{r meanScores clinics}
+
+un_clinics <- unique(ccp_hist$clinic_id)
+
+df_clinics <- data.frame(matrix(ncol = 54, nrow = length(un_clinics)))
+names(df_clinics) <- c("Country","clinic_id" ,"clinic","response_#","response_%","avg_pers_c","avg_serv_coord","avg_prof_coord","avg_organ_coord","avg_overall_coord","avg_overall_coord*avg_pers_c","avg_overall_coord*avg_prof_coord","avg_overall_coord*avg_serv_coord","avg_overall_coord*avg_organ_coord","nr_endocrin","ratio_endocrin","sd_endocrin","avg_endocrin","nr_cardio","ratio_cardio","sd_cardio","avg_cardio","nr_general_pract","ratio_general_pract","sd_general_pract","avg_general_pract","nr_dietician","ratio_dietician","sd_dietician","avg_dietician","nr_pharm","ratio_pharm","sd_pharm","avg_pharm","nr_psych","ratio_psych","sd_psych","avg_psych","nr_social_worker","ratio_social_worker","sd_social_worker","avg_social_worker","nr_diabetic_nurse","ratio_diabetic_nurse","sd_diabetic_nurse","avg_diabetic_nurse", "avg_overall_coord*avg_endocrin", "avg_overall_coord*avg_cardio","avg_overall_coord*avg_general_pract","avg_overall_coord*avg_dietician","avg_overall_coord*avg_pharm","avg_overall_coord*avg_psych","avg_overall_coord*avg_social_worker","avg_overall_coord*avg_diabetic_nurse")
+
+for(cl in 1:length(un_clinics))
+#for(cl in 1:10)
+{
+  #print(un_clinics[cl])
+  cl_data <- ccp_hist[which(ccp_hist$clinic_id == un_clinics[cl]),]
+  c_lut <- sum(as.numeric(LUT$NoP[which(LUT$c_id == un_clinics[cl])]))
+  
+  df_clinics[cl,1] <- cl_data[1,8]
+  df_clinics[cl,2] <- cl_data[1,9]
+  df_clinics[cl,3] <- cl_data[1,10]
+  df_clinics[cl,4] <- nrow(cl_data)
+  df_clinics[cl,5] <- (nrow(cl_data)/c_lut)*100
+  df_clinics[cl,6] <- mean(data.matrix(cl_data[,11:16]), na.rm=T) # avg  person centred
+  df_clinics[cl,7] <- mean(data.matrix(cl_data[,17:22]), na.rm=T) # avg service coord
+  df_clinics[cl,8] <- mean(data.matrix(cl_data[,23:29]), na.rm=T) # avg professional coord
+  df_clinics[cl,9] <- mean(data.matrix(cl_data[,30:35]), na.rm=T) # avg organisational coord
+  df_clinics[cl,10] <- mean(data.matrix(cl_data[,36]), na.rm=T)-1 # avg overall care coord
+  df_clinics[cl,11] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,6]) # avg overall care coord * avg  person centred
+  df_clinics[cl,12] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,7]) # avg overall care coord * avg service coord
+  df_clinics[cl,13] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,8]) # avg overall care coord * avg professional coord
+  df_clinics[cl,14] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,9]) # avg overall care coord * avg organisational coord
+  df_clinics[cl,15] <- length(which(cl_data[,40] != '')) # nr_endocrin length(col[,40])
+  df_clinics[cl,16] <- length(which(cl_data[,40] != ''))/nrow(cl_data)
+  df_clinics[cl,17] <- 0
+  df_clinics[cl,18] <- mean(data.matrix(cl_data[,40]), na.rm=T) # avg_endocrin 
+  df_clinics[cl,19] <- length(which(cl_data[,41] != ''))
+  df_clinics[cl,20] <- length(which(cl_data[,41] != ''))/nrow(cl_data)
+  df_clinics[cl,21] <- 0
+  df_clinics[cl,22] <- mean(data.matrix(cl_data[,41]), na.rm=T)
+  df_clinics[cl,23] <- length(which(cl_data[,42] != ''))
+  df_clinics[cl,24] <- length(which(cl_data[,42] != ''))/nrow(cl_data)
+  df_clinics[cl,25] <- 0
+  df_clinics[cl,26] <- mean(data.matrix(cl_data[,42]), na.rm=T)
+  df_clinics[cl,27] <- length(which(cl_data[,43] != ''))
+  df_clinics[cl,28] <- length(which(cl_data[,43] != ''))/nrow(cl_data)
+  df_clinics[cl,29] <- 0
+  df_clinics[cl,30] <- mean(data.matrix(cl_data[,43]), na.rm=T)
+  df_clinics[cl,31] <- length(which(cl_data[,44] != ''))
+  df_clinics[cl,32] <- length(which(cl_data[,44] != ''))/nrow(cl_data)
+  df_clinics[cl,33] <- 0
+  df_clinics[cl,34] <- mean(data.matrix(cl_data[,44]), na.rm=T)
+  df_clinics[cl,35] <- length(which(cl_data[,45] != ''))
+  df_clinics[cl,36] <- length(which(cl_data[,45] != ''))/nrow(cl_data)
+  df_clinics[cl,37] <- 0
+  df_clinics[cl,38] <- mean(data.matrix(cl_data[,45]), na.rm=T)
+  df_clinics[cl,39] <- length(which(cl_data[,46] != ''))
+  df_clinics[cl,40] <- length(which(cl_data[,46] != ''))/nrow(cl_data)
+  df_clinics[cl,41] <- 0
+  df_clinics[cl,42] <- mean(data.matrix(cl_data[,46]), na.rm=T)
+  df_clinics[cl,43] <- length(which(cl_data[,47] != ''))
+  df_clinics[cl,44] <- length(which(cl_data[,47] != ''))/nrow(cl_data)
+  df_clinics[cl,45] <- 0
+  df_clinics[cl,46] <- mean(data.matrix(cl_data[,47]), na.rm=T)
+  df_clinics[cl,47] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,18])
+  df_clinics[cl,48] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,22])
+  df_clinics[cl,49] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,26])
+  df_clinics[cl,50] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,30])
+  df_clinics[cl,51] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,34])
+  df_clinics[cl,52] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,38])
+  df_clinics[cl,53] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,42])
+  df_clinics[cl,54] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,46])
+}
+
+# identify clinics that deviate from mean
+col_ratio <- c(16,20,24,28,32,36,40,44)
+
+for(i in 1:length(col_ratio))
+{
+  col = col_ratio[i]
+  ratio <- as.numeric(df_clinics[,col])
+  log_ratio <- log(ratio)
+  is.na(log_ratio) <- sapply(log_ratio, is.infinite)
+  dev <- get_deviations(log_ratio)
+  df_clinics[,col+1] <- dev
+}
+ 
+# save data
+write.csv(df_clinics, file = "data/CCP_controleGetallen_per_clinic_2017.csv" , row.names=F)
+```

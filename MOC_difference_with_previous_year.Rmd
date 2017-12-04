@@ -1,0 +1,218 @@
+---
+title: "Difference_With_Previous_Year"
+author: "Esther Lips"
+date: "15-11-2017"
+output: html_document
+---
+
+```{r Load Packages}
+rm(list=ls())
+library("tidyr")
+library("dplyr")
+```
+
+```{r Read data}
+#moc_17 <- tbl_df(read.csv2("./data/FINAL/MOC/Clean-5742959-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2))
+#moc_16 <- tbl_df(read.csv2("2016/diaverum_staff_raw_data_MOC_2016.csv", sep=';', header=T, colClasses = "character", skip=2))
+#dim(moc_16)
+#[1] 6490   19
+
+country_17 <- read.csv("data/MOC_meanScores_per_country_2017.csv" , sep=',', colClasses = "character")
+clinic_17 <- read.csv("data/MOC_meanScores_per_clinic_2017.csv" , sep=',', colClasses = "character")
+
+country_16 <- read.csv("data/MOC_meanScores_per_country_2016.csv" , sep=',', colClasses = "character")
+clinic_16 <- read.csv("data/MOC_meanScores_per_clinic_2017.csv" , sep=',', colClasses = "character")
+
+
+### subsitute 9999999 in 2016 data with unique value
+#moc_16[which(moc_16$clinic == 'France Gie'),1] <- 1318
+#moc_16[which(moc_16$clinic == 'Carlos Pellegrini'),1] <- 2160 # verzonnen ID
+#moc_16[which(moc_16$clinic == 'Corporate'),1] <- 1010
+#moc_16[which(moc_16$clinic == 'Diaverum Corporativo'),1] <- 2820 # verzonnen ID
+#moc_16[which(moc_16$clinic == 'Biuro'),1] <- 1930 # verzonnen ID
+#moc_16[which(moc_16$clinic == 'Angers/Chateau Gonthier'),1] <- 1305
+
+# Convert 2017 data to 2016 scale (to match report)
+#for(q in 6:17)
+#{
+#    moc_16[which(moc_16[,q] == 0),q] <- 0/20
+#    moc_16[which(moc_16[,q] == 25),q] <- 25/20
+#    moc_16[which(moc_16[,q] == 50),q] <- 50/20
+#    moc_16[which(moc_16[,q] == 75),q] <- 75/20
+#    moc_16[which(moc_16[,q] == 100),q] <- 100/20
+    #print(unique(moc_16[,q]))
+#}
+```
+
+Get differences in scores for country and clinic for 2016
+
+```{r getDifference per country}
+
+all_countries <- c(country_17[,1], country_16[,1])
+un_countries <- unique(all_countries)
+#length(un_countries)
+
+#init country table
+df1 <- data.frame(matrix(ncol = 40, nrow = length(un_countries)))
+colnames(df1) <- c("Country","#_resp_16", "#_resp_17", "Diff_Resp","expected_16", "expected_17", "expected_Diff", "tools_16", "tools_17", "tools_Diff", "motivated_16", "motivated_17", "motivated_Diff","support_16", "support_17", "support_Diff","strategy_16", "strategy_17", "strategy_Diff","contribute_16", "contribute_17", "contribute_Diff","valued_16", "valued_17", "valued_Diff","achieve_16", "achieve_17", "achieve_Diff","improve.quality_16", "improve.quality_17", "improve.quality_Diff","like.to.work_16", "like.to.work_17", "like.to.work_Diff","feedback_16", "feedback_17", "feedback_Diff","recommend_16", "recommend_17", "recommend_Diff")
+
+
+for(i in 1:length(un_countries))
+{
+  country = un_countries[i]
+  print(country)
+  sub_16 <- country_16[which(country_16[,1] == country),]
+  sub_17 <- country_17[which(country_17[,1] == country),]
+  
+  if(nrow(sub_17) == 0)
+  {
+    df1[i,1] <- country
+    df1[i,2] <- sub_16$reviews
+    df1[i,3] <- 0
+    df1[i,4] <- 0
+     j2 <- 5
+    
+    for(q in 1:12)
+    {
+      col = q+4
+      df1[i,j2] <- sub_16[1,col]
+      df1[i,j2+1] <- 0
+      df1[i,j2+2] <- 0
+      j2 = j2+3
+    }
+  }
+  
+  if(nrow(sub_16) == 0)
+  {
+    df1[i,1] <- country
+    df1[i,2] <- 0
+    df1[i,3] <- sub_17$reviews
+    df1[i,4] <- 0
+    
+     j2 <- 5
+    
+    for(q in 1:12)
+    {
+      col = q+4
+      df1[i,j2] <- 0
+      df1[i,j2+1] <- sub_17[1,col]
+      df1[i,j2+2] <- 0
+
+      j2 = j2+3
+    }
+  }
+  
+  if(nrow(sub_16) == 1 && nrow(sub_17) == 1)
+  {
+    df1[i,1] <- country
+    df1[i,2] <- sub_16$reviews
+    df1[i,3] <- sub_17$reviews
+    df1[i,4] <- round(as.numeric(sub_17$reviews)-as.numeric(sub_16$reviews), digits=4)
+  
+    j2 <- 5
+    
+    for(q in 1:12)
+    {
+      col = q+4
+      df1[i,j2] <- sub_16[1,col]
+      df1[i,j2+1] <- sub_17[1,col]
+      df1[i,j2+2] <- round(as.numeric(sub_17[1,col])-as.numeric(sub_16[1,col]), digits=4)
+      #print(paste(i, j2))
+      j2 = j2+3
+    }
+  }
+}
+
+df1 <- df1[order(df1$Country),]
+write.csv(df1, file = "data/MOC_differences_2016_2017_countries.csv" , row.names=F, fileEncoding = "UTF-8" )
+
+```
+
+Get differences per clinic
+```{r Get Differences per clinic}
+all_clinics <- c(clinic_16[,3], clinic_17[,3])
+un_cids <- unique(all_clinics)
+length(un_cids)
+#[1] 392
+
+#init clinic table
+df2 <- data.frame(matrix(ncol = 42, nrow = length(un_cids)))
+colnames(df2) <- c("Country", "Clinic_ID", "Clinic_name","#_resp_16", "#_resp_17","Resp_Diff", "expected_16", "expected_17", "expected_Diff", "tools_16", "tools_17", "tools_Diff", "motivated_16", "motivated_17", "motivated_Diff","support_16", "support_17", "support_Diff","strategy_16", "strategy_17", "strategy_Diff","contribute_16", "contribute_17", "contribute_Diff","valued_16", "valued_17", "valued_Diff","achieve_16", "achieve_17", "achieve_Diff","improve.quality_16", "improve.quality_17", "improve.quality_Diff","like.to.work_16", "like.to.work_17", "like.to.work_Diff","feedback_16", "feedback_17", "feedback_Diff","recommend_16", "recommend_17", "recommend_Diff")
+
+for(i in 1:length(un_cids))
+{
+  clinic = un_cids[i]
+ 
+  sub_16 <- clinic_16[which(clinic_16[,3] == clinic),]
+  sub_17 <- clinic_17[which(clinic_17[,3] == clinic),]
+	
+	if(nrow(sub_16) == 0)
+	{
+	  df2[i,1] <- sub_17$Country
+	  df2[i,2] <- sub_17$Clinic
+	  df2[i,3] <- sub_17$Clinic_ID
+	  df2[i,4] <- 0
+	  df2[i,5] <- sub_17$reviews
+	  df2[i,6] <- 0
+	  
+	  j2 <- 7
+    
+    for(q in 1:12)
+    {
+      col = q+6
+      df2[i,j2] <- 0
+      df2[i,j2+1] <- sub_17[1,col]
+      df2[i,j2+2] <- 0
+      j2 = j2+3
+     }
+	  }
+	
+		if(nrow(sub_17) == 0)
+	  {
+	    df2[i,1] <- sub_16$Country
+	    df2[i,2] <- sub_16$Clinic
+	    df2[i,3] <- sub_16$Clinic_ID
+	    df2[i,4] <- sub_16$reviews
+	    df2[i,5] <- 0
+	    df2[i,6] <- 0
+	    
+	    j2 <- 7
+    
+      for(q in 1:12)
+      {
+        col = q+6
+        df2[i,j2] <- sub_16[1,col]
+        df2[i,j2+1] <- 0
+        df2[i,j2+2] <- 0
+        j2 = j2+3
+      }
+	}
+	
+	if(nrow(sub_16) == 1 && nrow(sub_17) == 1)
+	{
+	  #print("sub16 =1")
+	  df2[i,1] <- sub_17$Country
+	  df2[i,2] <- sub_17$Clinic
+	  df2[i,3] <- sub_17$Clinic_ID
+	  df2[i,4] <- sub_16$reviews
+    df2[i,5] <- sub_17$reviews
+    df2[i,6] <- round(as.numeric(sub_17$reviews)-as.numeric(sub_16$reviews), digits=4)
+    
+    j2 <- 7
+    
+    for(q in 1:12)
+    {
+      col = q+6
+      df2[i,j2] <- sub_16[1,col]
+      df2[i,j2+1] <- sub_17[1,col]
+      df2[i,j2+2] <- round(as.numeric(sub_17[1,col])-as.numeric(sub_16[1,col]), digits=4)
+      j2 = j2+3
+    }
+	}
+}
+
+df2 <- df2[order(df2$Country),]
+write.csv(df2, file = "data/MOC_differences_2016_2017_clinics.csv" , row.names=F, fileEncoding = "UTF-8"  )
+
+```
+

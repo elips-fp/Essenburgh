@@ -1,0 +1,82 @@
+---
+title: "MOC_meanScores_2016"
+author: "Esther Lips"
+date: "4-12-2017"
+output: html_document
+---
+
+```{r Load Packages}
+rm(list=ls())
+library("tidyr")
+library("dplyr")
+```
+
+```{r read Data}
+moc_16 <- tbl_df(read.csv2("2016/diaverum_staff_raw_data_MOC_2016.csv", sep=';', header=T, colClasses = "character", skip=2))
+
+moc_16[which(moc_16$clinic == 'France Gie'),1] <- 1318
+moc_16[which(moc_16$clinic == 'Carlos Pellegrini'),1] <- 2160 # verzonnen ID
+moc_16[which(moc_16$clinic == 'Corporate'),1] <- 1010
+moc_16[which(moc_16$clinic == 'Diaverum Corporativo'),1] <- 2820 # verzonnen ID
+moc_16[which(moc_16$clinic == 'Biuro'),1] <- 1930 # verzonnen ID
+moc_16[which(moc_16$clinic == 'Angers/Chateau Gonthier'),1] <- 1305
+```
+
+```{r get MeanScores }
+un_country_16 <- unique(moc_16$country)
+un_cid_16 <- unique(moc_16$clinic_id)
+
+#init country table
+country_16 <- data.frame(matrix(ncol = 16, nrow = length(un_country_16)))
+colnames(country_16) <- c("Country","reviews", "response rate", "score", paste("X", 1:12, sep=""))
+
+#init clinic table
+clinic_16 <- data.frame(matrix(ncol = 18, nrow = length(un_cid_16)))
+colnames(clinic_16) <- c("Country","Clinic","Clinic_ID","reviews", "response rate", "score", paste("X", 1:12, sep=""))
+
+i2 = 1 
+
+for(i in 1:length(un_country_16))
+{
+  country = un_country_16[i]
+  ix <- which(moc_16$country == country)
+  sub_data <- moc_16[ix,]
+  
+  un_cname <- unique(sub_data$clinic_id)
+  
+  question_data <- cbind(sub_data[,1:3], sub_data[,6:17])
+  
+  mean_q <- colMeans(data.matrix(question_data[,4:15]), na.rm=T)
+  mean_all <- mean(mean_q, na.rm=T)
+  print(country)
+  
+  country_16[i,1] <- country
+  country_16[i,2] <- nrow(sub_data)
+  country_16[i,3] <- NA  #round(nrow(sub_data)/sum(as.numeric(c_lut$NoE))*100, digits=4)
+  country_16[i,4] <- round(mean_all <- mean(mean_q, na.rm=T), digits=4)
+  country_16[i,5:16] <- round(colMeans(data.matrix(question_data[,4:15]),na.rm=T), digits=4)
+  
+  for(j in 1:length(un_cname))
+  {
+    c_idx <- which(question_data[,1] == un_cname[j])
+    #no_empl <- as.numeric(LUT$NoE[which(LUT$c_id == un_cname[j])])
+    cl_data <- question_data[c_idx,]
+    
+    mean_q_cl <- colMeans(data.matrix(cl_data[,4:15]))
+    mean_all_cl <- mean(mean_q_cl)
+    
+    clinic_16[i2,1] <- cl_data[1,3]
+    clinic_16[i2,2] <- cl_data[1,2]
+    clinic_16[i2,3] <- cl_data[1,1]
+    clinic_16[i2,4] <- nrow(cl_data)
+    clinic_16[i2,5] <- NA #round(nrow(cl_data)/no_empl*100, digits=4)
+    clinic_16[i2,6] <- round(mean(mean_q_cl), digits=4)
+    clinic_16[i2,7:18] <- round(colMeans(data.matrix(cl_data[,4:15])), digits=4)
+    i2 = i2+1
+  }
+}
+
+write.csv(country_16, file = "data/MOC_meanScores_per_country_2016.csv" , row.names=F, fileEncoding = "UTF-8" )
+write.csv(clinic_16, file = "data/MOC_meanScores_per_clinic_2016.csv" , row.names=F)
+
+```

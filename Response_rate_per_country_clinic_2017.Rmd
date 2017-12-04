@@ -1,0 +1,197 @@
+---
+title: "Response rate per country/clinic"
+author: "Esther Lips"
+date: "3-12-2017"
+output: html_document
+---
+
+This document describes the steps taken to get the summary data per clinic in a table. 
+
+1) Read data & discard the responses with sequence ID > 1
+
+```{r Read Data}
+rm(list=ls())
+moc <- tbl_df(read.csv2("./data/FINAL/MOC/Clean-5742959-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2))
+ccs <- tbl_df(read.csv2("./data/FINAL/CCS/Clean-5742477-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2))
+ccp <- tbl_df(read.csv2("./data/FINAL/CCP/Clean-5750335-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2))
+ps <- tbl_df(read.csv2("./data/FINAL/PS/Clean-5783064-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2))
+LUT <- tbl_df(read.csv2("./data/LUT_v3.csv", sep=',', header=T, colClasses = "character"))
+
+moc <- moc[which(moc$Seq..Number == 1),]
+ccs <- ccs[which(ccs$Seq..Number == 1),]
+ccp <- ccp[which(ccp$Seq..Number == 1),]
+ps <- ps[which(ps$Seq..Number == 1),]
+
+dim(moc)
+# [1] 7586   43
+dim(ccs)
+# [1] 6052  126
+dim(ccp)
+# [1] 17512    96
+dim(ps)
+# [1] 20295   62
+
+```
+3) Table 1 Get ID matching per country
+
+```{r Response Rate per Country}
+
+un_countries <- sort(unique(LUT$country))
+
+df1 <- data.frame(matrix(ncol = 21, nrow = length(un_countries)))
+df1[,1] <- un_countries
+
+colnames(df1) <- c("Country","MOC_INPUT","MOC_UITVAL","NoE","MOC_#","MOC_%","CCS_INPUT","CCS_UITVAL","NoE","CCS_#","CCS_%", "PS_INPUT","PS_UITVAL","NoP","PS_#","PS_%","CCP_INPUT","CCP_UITVAL","NoP","CCP_#","CCP_%")
+
+# calc noe and nop per country
+for(i in 1:length(un_countries))
+{
+  #print(un_countries[i])
+  c.idx <- which(LUT$country == un_countries[i])
+  #sum(as.numeric(LUT$NoE[c.idx]))
+  #sum(as.numeric(LUT$NoP[c.idx]))
+  df1[i,4] <- sum(as.numeric(LUT$NoE[c.idx]), na.rm=T)
+  df1[i,9] <- sum(as.numeric(LUT$NoE[c.idx]), na.rm=T)
+  df1[i,14] <- sum(as.numeric(LUT$NoP[c.idx]), na.rm=T)
+  df1[i,19] <- sum(as.numeric(LUT$NoP[c.idx]), na.rm=T)
+  #print(sum(as.numeric(LUT$NoP[c.idx], na.rm=F), na.rm=T))
+}
+
+## moc
+moc$verw_code <- as.factor(moc$verw_code)
+moc$Custom.Variable.4 <- as.factor(moc$Custom.Variable.4)
+t1_moc <- table(moc$Custom.Variable.4, moc$verw_code)
+t1_moc <- cbind(t1_moc, rowSums(t1_moc)) # add colSum to t1_moc
+moc_idx <- match(df1[,1], rownames(t1_moc), nomatch=0)
+notnull <- which(moc_idx !=0)
+
+df1[notnull,2] <- t1_moc[moc_idx,2] # input (= total from table)
+df1[notnull,3] <- 0 # uitval
+#df1[notnull,4] <-  # NoE
+df1[notnull,5] <- t1_moc[moc_idx,1] # no. responses
+df1[notnull,6] <- round(df1[notnull,5]/df1[notnull,4]*100, digits=2) # % reponses
+
+## ccs
+ccs$verw_code <- as.factor(ccs$verw_code)
+ccs$country <- as.factor(ccs$country)
+t1_ccs <- table(ccs$country, ccs$verw_code)
+t1_ccs <- cbind(t1_ccs, rowSums(t1_ccs)) # add colSum to t1_moc
+ccs_idx <- match(df1[,1],rownames(t1_ccs), nomatch=0)
+notnull <- which(ccs_idx !=0)
+
+df1[notnull,7] <- t1_ccs[ccs_idx,2] # total csv
+df1[notnull,8] <- t1_ccs[ccs_idx,1] #col=1 nr uitval
+#df1[notnull,9] <- #NoE
+df1[notnull,10] <- t1_ccs[ccs_idx,2]-t1_ccs[ccs_idx,1] # col =2 / input - uitval 
+df1[notnull,11] <- round(df1[notnull,10]/df1[notnull,9]*100, digits=2) 
+
+## ps
+ps$verw_code <- as.factor(ps$verw_code)
+ps$country <- as.factor(ps$country)
+t1_ps <- table(ps$country, ps$verw_code)
+t1_ps <- cbind(t1_ps, rowSums(t1_ps)) # add colSum to t1_moc
+ps_idx <- match(df1[,1],rownames(t1_ps), nomatch=0)
+notnull <- which(ps_idx !=0)
+
+df1[notnull,12] <- t1_ps[ps_idx,3] # input (= total from table)
+df1[notnull,13] <- t1_ps[ps_idx,1] # uitval
+#df1[notnull,14] <- #NOP
+df1[notnull,15] <- t1_ps[ps_idx,3]-t1_ps[ps_idx,1] #nm
+df1[notnull,16] <- round(df1[notnull,15]/df1[notnull,14]*100, digits=2) # % reponses
+
+## ccp
+ccp$verw_code <- as.factor(ccp$verw_code)
+ccp$country <- as.factor(ccp$country)
+t1_ccp <-table(ccp$country, ccp$verw_code)
+t1_ccp <- cbind(t1_ccp, rowSums(t1_ccp)) # add colSum to t1_moc
+ccp_idx <- match(df1[,1],rownames(t1_ccp), nomatch=0)
+notnull <- which(ccp_idx !=0)
+
+df1[notnull,17] <- t1_ccp[ccp_idx,3] # total csv
+df1[notnull,18] <- t1_ccp[ccp_idx,1] # uitval col=1
+df1[notnull,20] <- t1_ccp[ccp_idx,3]-t1_ccp[ccp_idx,1] # opgenomen = col4-col1
+df1[notnull,21] <- round(df1[notnull,20]/df1[notnull,19]*100, digits=2) #responses
+
+#df_short <- cbind(df1[,1:6],df1[,12:16])
+#write.csv(df_short, file = "data/summary_per_country_13-11-2017.csv" , row.names=F, fileEncoding = "UTF-8" )
+
+write.csv(df1, file = "data/response_rates_per_country_FINAL_2017.csv" , row.names=F, fileEncoding = "UTF-8" )
+
+```
+
+4) Table 2 Get response rate per clinic
+
+```{r ResponseRate per Clinic}
+LUT <- LUT[order(as.numeric(LUT$c_id)),]
+dim(LUT)
+
+df2 <- data.frame(matrix(ncol = 15, nrow = nrow(LUT)))
+colnames(df2) <- c("Country","Clinic_id","Clinic_name", "MOC_NoE", "MOC_#", "MOC_%", "CCS_NoE", "CCS_#", "CCS_%", "PS_NoP", "PS_#", "PS_%","CCP_NoP", "CCP_#", "CCP_%")
+
+df2[,1] <- LUT$country
+df2[,2] <- LUT$c_id
+df2[,3] <- LUT$c_name
+
+
+## moc
+moc$verw_code <- as.factor(moc$verw_code)
+moc$Custom.Variable.6 <- as.factor(moc$Custom.Variable.6)
+t2_moc <- table(moc$Custom.Variable.6, moc$verw_code)
+t2_moc <- cbind(t2_moc, rowSums(t2_moc)) # add total minus nm
+moc_idx <- match(df2[,2], rownames(t2_moc), nomatch=0)
+notnull <- which(moc_idx !=0)
+
+df2[,4] <- as.numeric(LUT$NoE)
+df2[notnull,5] <- t2_moc[moc_idx[notnull],2] # total csv-nm
+df2[,6] <- round(df2[,5]/df2[,4]*100, digits=2) #vcnm
+
+## ccs
+ccs$verw_code <- as.factor(ccs$verw_code)
+ccs$Custom.Variable.6 <- as.factor(ccs$clinic_id)
+t2_ccs <- table(ccs$clinic_id, ccs$verw_code)
+t2_ccs <- cbind(t2_ccs, rowSums(t2_ccs)-t2_ccs[,1])
+ccs_idx <- match(df2[,2], rownames(t2_ccs), nomatch=0)
+notnull <- which(ccs_idx !=0)
+
+df2[,7] <- as.numeric(LUT$NoE)
+df2[notnull,8] <- t2_ccs[ccs_idx[notnull],2]-t2_ccs[ccs_idx[notnull],1] # total csv-nm
+df2[,9] <- round(df2[,8]/df2[,7]*100, digits=2) # ratio responses
+
+## ps
+ps$verw_code <- as.factor(ps$verw_code)
+ps$Custom.Variable.6 <- as.factor(ps$clinic_id)
+t2_ps <- table(ps$clinic_id, ps$verw_code)
+t2_ps <- cbind(t2_ps, rowSums(t2_ps)-t2_ps[,1])
+ps_idx <- match(df2[,2], rownames(t2_ps), nomatch=0)
+notnull <- which(ps_idx !=0)
+
+df2[,10] <- as.numeric(LUT$NoP)
+df2[notnull,11] <- t2_ps[ps_idx[notnull],3]-t2_ps[ps_idx[notnull],1] # total csv-nm
+df2[,12] <- round(df2[,11]/df2[,10]*100, digits=2) # ratio responses
+
+
+## ccp
+ccp$verw_code <- as.factor(ccp$verw_code)
+ccp$Custom.Variable.6 <- as.factor(ccp$clinic_id)
+t2_ccp <- table(ccp$clinic_id, ccp$verw_code)
+t2_ccp <- cbind(t2_ccp, rowSums(t2_ccp)-t2_ccp[,1])
+ccp_idx <- match(df2[,2], rownames(t2_ccp), nomatch=0)
+notnull <- which(ccp_idx !=0)
+
+df2[,13] <- as.numeric(LUT$NoP)
+df2[notnull,14] <- t2_ccp[ccp_idx[notnull],3]-t2_ccp[ccp_idx[notnull],1] # total csv-nm
+df2[,15] <- round(df2[,14]/df2[,13]*100, digits=2) # ratio responses
+
+
+#df2_short <- cbind(df2[,1:6],df2[,10:12])
+#write.csv(df2_short, file = "data/response_rates_per_clinic_FINAL.csv" , row.names=F, fileEncoding = "UTF-8")
+
+## Save file
+write.csv(df2, file = "data/response_rates_per_clinic_FINAL.csv" , row.names=F, fileEncoding = "UTF-8" )
+
+```
+
+
+
+
+

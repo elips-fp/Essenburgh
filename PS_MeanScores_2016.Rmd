@@ -1,0 +1,190 @@
+---
+title: "Calculate mean questionaires per country and clinic"
+author: "Esther Lips"
+date: "9-11-2017"
+output: html_document
+---
+
+This document describes the steps taken to get the calculate the mean answers per question per month per country and clinic. 
+
+1) Read data & discard the responses with sequence ID > 1
+
+```{r Load Packages}
+rm(list=ls())
+library("tidyr")
+library("dplyr")
+```
+
+```{r read Data}
+ps_16 <- tbl_df(read.csv("2016/diaverum_international_raw_data_Oct2016.csv", sep=';', header=T, colClasses = "character", skip=3, encoding="UTF-8"))
+dim(ps_16)
+# [1] 19323    16
+
+ps_16$rowMeans <- ""
+
+rowmeans <- rowMeans(data.matrix(ps_16[,8:16]), na.rm=T)
+ps_16$rowMeans <- rowmeans
+
+write.csv(ps_16, file = paste("2016/diaverum_international_raw_data_Oct2016_EL_edit.csv"), row.names=F)
+
+```
+Get meanScores per country - 2016 data
+
+```{r MeanScores per country}
+
+un_country_16 <- unique(ps_16$country)
+un_cid_16 <- unique(ps_16$clinic_id)
+
+#init country table
+country_16 <- data.frame(matrix(ncol = 14, nrow = length(un_country_16)+1))
+colnames(country_16) <- c("Country","reviews", "response rate", "score", paste("X", 1:9, sep=""), "rowMeans")
+
+#init clinic table
+clinic_16 <- data.frame(matrix(ncol = 16, nrow = length(un_cid_16)))
+colnames(clinic_16) <- c("Country","Clinic","Clinic_ID","reviews", "response rate", "score", paste("X", 1:9, sep=""), "rowMeans")
+
+i2 = 1 
+
+for(i in 1:length(un_country_16))
+{
+  country = un_country_16[i]
+  ix <- which(ps_16$country == country)
+  sub_data <- ps_16[ix,]
+  
+  un_cname <- unique(sub_data$clinic_id)
+
+  question_data <- cbind(sub_data[,1:3], sub_data[,8:16])
+  
+  mean_q <- colMeans(data.matrix(sub_data[,8:16]), na.rm=T)
+  mean_all <- mean(mean_q, na.rm=T)
+  #print(country)
+  
+  country_16[i,1] <- country
+  country_16[i,2] <- nrow(sub_data)
+  country_16[i,3] <- NA  #round(nrow(sub_data)/sum(as.numeric(c_lut$NoE))*100, digits=4)
+  country_16[i,4] <- round(mean_all, digits=2)
+  country_16[i,5:13] <- round(colMeans(data.matrix(sub_data[,8:16]),na.rm=T), digits=4)
+  country_16[i,14] <- mean(round(rowMeans(data.matrix(sub_data[,8:16]),na.rm=T), digits=4), na.rm=T)
+  
+  for(j in 1:length(un_cname))
+  {
+    #print(un_cname[j])
+    c_idx <- which(question_data[,3] == un_cname[j])
+    #no_empl <- as.numeric(LUT$NoE[which(LUT$c_id == un_cname[j])])
+    cl_data <- question_data[c_idx,]
+    
+    mean_q_cl <- colMeans(data.matrix(cl_data[,4:12]), na.rm=T)
+    mean_all_cl <- mean(mean_q_cl)
+    
+    clinic_16[i2,1] <- cl_data[1,2]
+    clinic_16[i2,2] <- cl_data[1,1]
+    clinic_16[i2,3] <- cl_data[1,3]
+    clinic_16[i2,4] <- nrow(cl_data)
+    clinic_16[i2,5] <- NA #round(nrow(cl_data)/no_empl*100, digits=4)
+    clinic_16[i2,6] <- round(mean(mean_q_cl, na.rm=T), digits=4)
+    clinic_16[i2,7:15] <- round(colMeans(data.matrix(cl_data[,4:12]), na.rm=T), digits=4)
+    clinic_16[i2,16] <- mean(round(rowMeans(data.matrix(cl_data[,4:12]), na.rm=T), digits=4), na.rm=T)
+    i2 = i2+1
+  }
+}
+
+country_16[20,1] <- "Global"
+country_16[20,2] <- nrow(ps_16)
+country_16[20,3] <- NA  #round(nrow(ps_16)/sum(as.numeric(c_lut$NoE))*100, digits=4)
+country_16[20,4] <- NA #round(mean_all, digits=2)
+country_16[20,5:13] <- NA #round(colMeans(data.matrix(ps_16[,8:16]),na.rm=T), digits=4)
+country_16[20,14] <- mean(round(rowMeans(data.matrix(ps_16[,8:16]),na.rm=T), digits=4), na.rm=T)
+  
+#country_16 <- country_16[order(country_16$Country),]
+#clinic_16 <- clinic_16[order(clinic_16$Country),]
+
+write.csv(country_16, file = "data/ps_MeanScores_per_country_2016.csv" , row.names=F, fileEncoding = "UTF-8" )
+write.csv(clinic_16, file = "data/ps_MeanScores_per_clinic_2016.csv" , row.names=F)
+
+```
+Get table per patienttype
+```{r meanScores patienttype}
+un_countries <- unique(ps_16$country)
+un_cids <- unique(ps_16$clinic_id)
+
+ps_16$patient_type[which(ps_16$patient_type == "Diaverum HD")] <- "HD"
+ps_16$patient_type[which(ps_16$patient_type == "Diaverum PD")] <- "Home HD/PD"
+ps_16$patient_type[which(ps_16$patient_type == "Diaverum clinic consultations")] <- "Clinic Consult"
+ps_16$patient_type[which(ps_16$patient_type == "Diaverum home HD")] <- "Home HD/PD"
+
+un_patient_types <- unique(ps_16$patient_type)
+
+for(p in 1:length(un_patient_types))
+#for(p in 1:1)
+{
+  i2 = 1 
+  ix <- which(ps_16$patient_type == un_patient_types[p])
+  patient_data <- ps_16[ix,]
+  
+  ptype <- c("PatientType_HD", "PatientType_HomeHD_PD", "PatientType_Clinic_Consult") # for filenames
+  un_cids <- unique(patient_data$clinic_id)
+  
+  #init country table
+  country_16 <- data.frame(matrix(ncol = 14, nrow = length(un_countries)))
+  colnames(country_16) <- c("Country","reviews", "response rate","mean score", c(paste("X1.", 1:9, sep="")),"rowMean")
+  
+  #init clinic table
+  clinic_16 <- data.frame(matrix(ncol = 16, nrow = length(un_cids)))
+  colnames(clinic_16) <- c("Country","Clinic_ID","Clinic","reviews", "response rate", "mean score", c(paste("X1.", 1:9, sep="")), "rowMean")
+  
+  for(i in 1:length(un_countries))
+  {
+    country = un_countries[i]
+    ix <- which(patient_data$country == country)
+    sub_data <- patient_data[ix,]
+    
+    un_cname <- unique(sub_data$clinic_id)
+  
+    question_data <- cbind(sub_data[,1:3], sub_data[,8:16])
+    
+    mean_q <- colMeans(data.matrix(sub_data[,8:16]), na.rm=T)
+    mean_all <- mean(mean_q, na.rm=T)
+    #print(country)
+    
+    country_16[i,1] <- country
+    country_16[i,2] <- nrow(sub_data)
+    country_16[i,3] <- NA  #round(nrow(sub_data)/sum(as.numeric(c_lut$NoE))*100, digits=4)
+    country_16[i,4] <- round(mean_all, digits=2)
+    country_16[i,5:13] <- round(colMeans(data.matrix(sub_data[,8:16]),na.rm=T), digits=4)
+    country_16[i,14] <- mean(round(rowMeans(data.matrix(sub_data[,8:16]),na.rm=T), digits=4), na.rm=T)
+    
+    for(j in 1:length(un_cname))
+    {
+      #print(un_cname[j])
+      c_idx <- which(question_data[,3] == un_cname[j])
+      #no_empl <- as.numeric(LUT$NoE[which(LUT$c_id == un_cname[j])])
+      cl_data <- question_data[c_idx,]
+      
+      mean_q_cl <- colMeans(data.matrix(cl_data[,4:12]), na.rm=T)
+      mean_all_cl <- mean(mean_q_cl)
+      
+      clinic_16[i2,1] <- cl_data[1,2]
+      clinic_16[i2,2] <- cl_data[1,3]
+      clinic_16[i2,3] <- cl_data[1,1]
+      clinic_16[i2,4] <- nrow(cl_data)
+      clinic_16[i2,5] <- NA #round(nrow(cl_data)/no_empl*100, digits=4)
+      clinic_16[i2,6] <- round(mean(mean_q_cl, na.rm=T), digits=4)
+      clinic_16[i2,7:15] <- round(colMeans(data.matrix(cl_data[,4:12]), na.rm=T), digits=4)
+      clinic_16[i2,16] <- mean(round(rowMeans(data.matrix(cl_data[,4:12]), na.rm=T), digits=4), na.rm=T)
+      i2 = i2+1
+    }
+  }
+  
+  country_16[20,1] <- "Global"
+  country_16[20,2] <- nrow(patient_data)
+  country_16[20,3] <- NA  #round(nrow(patient_data)/sum(as.numeric(c_lut$NoE))*100, digits=4)
+  country_16[20,4] <- NA #round(mean_all, digits=2)
+  country_16[20,5:13] <- NA #round(colMeans(data.matrix(patient_data[,8:16]),na.rm=T), digits=4)
+  country_16[20,14] <- mean(round(rowMeans(data.matrix(patient_data[,8:16]),na.rm=T), digits=4), na.rm=T)
+
+  write.csv(country_16, file = paste("data/PS_meanScores_",ptype[p],"_countries_2016.csv",sep='') , row.names=F )
+  write.csv(clinic_16, file = paste("data/PS_meanScores_",ptype[p],"_clinics_2016.csv",sep=''), row.names=F )
+}
+
+```
+

@@ -1,0 +1,104 @@
+---
+title: "CCP data - Identificeer afwijkende klinieken"
+author: "Esther Lips"
+date: "30-11-2017"
+output: html_document
+---
+
+Goal: krijg inzicht in of de patienten van een kliniek/land vaker dan gemiddeld extern hulp zoeken. Gewenst is om aan te geven welke landen/klinieken meer dan (2x) standdaard deviatie afwijkt van het gemiddelde. 
+
+In dit document beschrijf ik hoe je dit voor het aantal endocrine kan weergeven. 
+
+Issue: wanneer je met een SD en gemiddelde werkt dan ga je er eigenlijk vanuit dat de data normaal verdeeld is. Het absolute aantal individuen dat buiten de kliniek hulp heeft gezocht is echter niet normaal verdeeld (zie histogram hieronder). En tevens is dat dit absolute aantal geen eerlijke maat is om de grootte van een kliniek van invloed kan zijn op het aantal respondenten dat buiten de kliniek hulp zoekt.
+
+Oplossing: Er kan voor de grootte van een kliniek worden gecorrigeeerd door de ratio te nemen van het aantal respondenten dat buiten de kliniek hulp heeft gezocht: #_respondenten_met_externe_hulp/totaal_aantal_respondenten. Nu geeft de ratio per kliniek ook nog niet direct een normaal verdeling weer. Maar dit kan worden opgelost door een logtransformatie te nemen van de data. 
+
+Dus, door een mean en sd van de logtransformatie van de ratio te nemen kan betrouwbaar worden weergegeven welke klinieken/landen meer dan de SD afwijken van de gemiddelde
+
+
+
+
+## load data
+
+```{r Load data}
+#rm(list=ls())
+library("tidyr")
+library("dplyr")
+library("readxl")
+
+clinics <- tbl_df(read.csv( file = "data/CCP_meanQuestionare_per_clinic.csv" , sep=',', header=T, colClasses = "character", skip=0, encoding="UTF-8"))
+
+names(clinics) <- c("Country","clinic_id" ,"clinic","response_#","response_%","avg_pers_c","avg_serv_coord","avg_prof_coord","avg_organ_coord","avg_overall_coord","avg_overall_coord*avg_pers_c","avg_overall_coord*avg_serv_coord","avg_overall_coord*avg_prof_coord","avg_overall_coord*avg_organ_coord","nr_endocrin","avg_endocrin","nr_cardio","avg_cardio","nr_general_pract","avg_general_pract","nr_dietician","avg_dietician","nr_pharm","avg_pharm","nr_psych","avg_psych","nr_social_worker","avg_social_worker","nr_diabetic_nurse","avg_diabetic_nurse", "avg_overall_coord*avg_endocrin", "avg_overall_coord*avg_cardio","avg_overall_coord*avg_general_pract","avg_overall_coord*avg_dietician","avg_overall_coord*avg_pharm","avg_overall_coord*avg_psych","avg_overall_coord*avg_social_worker","avg_overall_coord*avg_diabetic_nurse")
+```
+
+
+
+
+# Transform data to log(ratio)
+
+Doel hiervan is een maat te creeëren die ons in staat stelt om klinieken/landen met elkaar te vergelijken (=ratio) en daarnaast ook een normaal verdeling te creeëren waardoor we afwijkingen van de gemiddelde per land/global kunnen detecteren. 
+
+De histogrammen hieronder laten zien (op kliniek niveau):
+1. histogram van de absolute aantallen (kolom nr_endocrine); deze laat een scheve verdeling zien
+2. histogram van log(absolute aantallen); deze laat een minder scheve verdeling zien. Maar nog steeds scheef
+3. histogram van de ratio (nr_endocrine/totaal_aantal_respondenten); deze laat een scheve verdeling zien die qua vorm vergelijkbaar is met het eerste histogram
+4. histogram van log(ratio); deze laat een normaal verdeling zien
+
+
+```{r Get sd from Ratio}
+
+# I have to select only those clinics that have a non-zero value, because SD can't work with Inf ratio's
+clinics_endo <- clinics[which(clinics$nr_endocrin != 0),]
+
+# histogram van absolute aantallen #nr_endocrin > laat scheve verdeling zien
+hist(as.numeric(clinics_endo$nr_endocrin))
+
+# histogram van log transformed absolute aantallen > laat scheve verdeling zien
+hist(log(as.numeric(clinics_endo$nr_endocrin)))
+
+# get ratio
+ratio <- as.numeric(clinics_endo$nr_endocrin)/as.numeric(clinics_endo$`response_#`)
+
+# histogram van ratio > laat scheve verdeling zien
+hist(ratio)
+
+# histogram van log(ratio) > laat normaalverdeling zien
+hist(log(ratio))
+
+```
+
+
+# Identificeer klinieken die meer dan +/- 2*SD van het gemiddelde afwijken
+
+Ik kan dat bereiken door gebruik te maken van de log_ratio van de klinieken en het gemiddelde en SD van deze log_ratio
+
+Ondernomen stappen:
+1. Bepaal gemiddelde en SD van de log_ratio
+2. Gebruik deze om de klinieken te detecteren die meer afwijken
+3. Laat de klinieken zien
+
+```{r Get deviations}
+
+# bepaal mean en SD
+log_ratio <- log(ratio)
+mean <- mean(log_ratio)
+sd <- sd(log_ratio)
+
+print(paste("mean(log_ratio)=", round(mean, digits=2), ", sd(log_ratio)=", round(sd, digits=2), sep=''))
+
+# get index from clinics that deviate ratio die +/- 2x SD from the mean
+minus_2sd <- which(log_ratio < mean-(2*sd))
+plus_2sd <- which(log_ratio > mean+(2*sd))
+
+clinics_endo$ratio <- round(ratio, digits=3)
+clinics_endo$log_ratio <- round(log_ratio, digits=3)
+clinics_endo$SD <- ''
+clinics_endo$SD[minus_2sd] <- "-"
+clinics_endo$SD[plus_2sd] <- "+"
+
+# get index from clinics that deviate more than 2*SD
+idx_2sd <- c(minus_2sd,plus_2sd)
+
+clinics_deviated <- cbind(clinics_endo[idx_2sd,1:4],clinics_endo[idx_2sd, 15], clinics_endo[idx_2sd, 39:41])
+clinics_deviated
+```

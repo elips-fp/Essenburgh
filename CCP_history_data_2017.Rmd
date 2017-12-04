@@ -1,0 +1,40 @@
+---
+title: "CCP_HistorieData"
+author: "Esther Lips"
+date: "24-11-2017"
+output: html_document
+---
+
+```{r Load packages and empty env}
+library("tidyr")
+library("dplyr")
+library("readxl")
+rm(list=ls())
+
+
+```
+
+Make history data
+```{r make History Data}
+# Read raw CCP data
+ccp <- tbl_df(read.csv("data/FINAL/CCP/Clean-5750335-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2, encoding="UTF-8"))
+
+ccp <-ccp[-1,]
+
+# Read XLS file with filenames
+names_XLS <- read_xlsx("Codebook_CC_Names.xlsx", sheet=1, col_names=T)
+
+hist_ccp <- cbind(ccp[,1:10], ccp[,23:28], ccp[,30:35], ccp[,37:39], ccp[,41:44], ccp[,46:51], ccp[,54:56], ccp[,59], ccp[,69:76], ccp[,82:83], ccp[,85:86], ccp[,88], ccp[,90:91], ccp$verw_code)
+
+names(hist_ccp) <- c(names_XLS$`Variable abbreviation`, "verw_code")
+
+header <- mat.or.vec(2, length(names(hist_ccp)))
+header[1,1] <- "Care Coordination Staff Reviews - 8 Oct to 13 Nov"
+header[2,1] <- ""
+header <- rbind(header, names(hist_ccp))
+header[1,which(header[1,] == 0)] <- ''
+header[2,which(header[2,] == 0)] <- ''
+
+write.table(header, file = "data/diaverum_patients_clean_data_CCP_nov2017.csv", row.names=F, col.names=F,fileEncoding = "UTF-8",sep=',')
+write.table(hist_ccp, file = "data/diaverum_patients_clean_data_CCP_nov2017.csv", row.names=F, col.names=F, fileEncoding = "UTF-8", sep=',',append=TRUE)
+```

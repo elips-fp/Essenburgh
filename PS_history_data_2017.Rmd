@@ -1,0 +1,59 @@
+---
+title: "PS_historie_data_2017"
+author: "Esther Lips"
+date: "20-11-2017"
+output: html_document
+---
+
+STEP 0: load packages
+```{r Load Packages}
+library("tidyr")
+library("dplyr")
+rm(list=ls())
+```
+
+```{r Make History data}
+ps_17 <- tbl_df(read.csv2("./data/FINAL/PS/Clean-5783064-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2, encoding="UTF-8"))
+
+ps_16 <- tbl_df(read.csv2("2016/diaverum_international_raw_data_Oct2016.csv", sep=';', header=T, colClasses = "character", skip=3, encoding="UTF-8"))
+
+ps_17 <- ps_17[which(ps_17$Seq..Number ==1),]
+dim(ps_17)
+
+#grep date
+ps_17[,3] <- substr(ps_17$Timestamp..MM.dd.yyyy.,0,10)
+
+t1.idx <- which(ps_17$patient_type == "HD")
+t2.idx <- which(ps_17$patient_type == "Home HD/PD")
+t3.idx <- which(ps_17$patient_type == "Clinic Consult")
+
+# patient type = HD
+t1_hist_2017 <- cbind(ps_17[t1.idx,10], ps_17[t1.idx,8], ps_17[t1.idx,9], ps_17[t1.idx,1], ps_17[t1.idx,3], ps_17[t1.idx,62], ps_17[t1.idx,36], ps_17[t1.idx,37], ps_17[t1.idx,38], ps_17[t1.idx,39], ps_17[t1.idx,40], ps_17[t1.idx,41], ps_17[t1.idx,63])
+
+# patient type = Home HD/PD
+t2_hist_2017 <- cbind(ps_17[t2.idx,10], ps_17[t2.idx,8], ps_17[t2.idx,9], ps_17[t2.idx,1], ps_17[t2.idx,3], ps_17[t2.idx,62], ps_17[t2.idx,43], ps_17[t2.idx,44], ps_17[t2.idx,45], ps_17[t2.idx,47], ps_17[t2.idx,48], ps_17[t2.idx,46], ps_17[t2.idx,63])
+
+# patient type = Clinic Consult
+t3_hist_2017 <- cbind(ps_17[t3.idx,10], ps_17[t3.idx,8], ps_17[t3.idx,9], ps_17[t3.idx,1], ps_17[t3.idx,3], ps_17[t3.idx,62], ps_17[t3.idx,50], ps_17[t3.idx,51], ps_17[t3.idx,55], ps_17[t3.idx,53], ps_17[t3.idx,52], ps_17[t3.idx,54], ps_17[t3.idx,63])
+  
+ps_hist_2017 <- data.frame(matrix(ncol = 16, nrow = nrow(ps_17)))
+names(ps_hist_2017) <- c(names(ps_16[1:5]), names(ps_16[7:16]),"verw_code")
+
+ps_hist_2017[t1.idx,1:12] <- t1_hist_2017[,1:12]
+ps_hist_2017[t1.idx,16] <- t1_hist_2017[,13]
+ps_hist_2017[t2.idx,1:9] <- t2_hist_2017[,1:9]
+ps_hist_2017[t2.idx,11:13] <- t2_hist_2017[10:12]
+ps_hist_2017[t2.idx,16] <- t2_hist_2017[,13]
+ps_hist_2017[t3.idx,1:8] <- t3_hist_2017[,1:8]
+ps_hist_2017[t3.idx,12:16] <- t3_hist_2017[,9:13]
+
+header <- mat.or.vec(2, length(names(ps_hist_2017)))
+header[1,1] <- "Diaverum Patient Reviews - 8 Oct to 13 Nov"
+header[2,1] <- "Patient types:HD, Home HD/PD, Clinic Consult"
+header <- rbind(header, names(ps_hist_2017))
+header[1,which(header[1,] == 0)] <- ''
+header[2,which(header[2,] == 0)] <- ''
+
+write.table(header, file = "data/diaverum_patients_clean_data_PS_nov2017.csv", row.names=F, col.names=F,fileEncoding = "UTF-8",sep=',')
+write.table(ps_hist_2017, file = "data/diaverum_patients_clean_data_PS_nov2017.csv", row.names=F, col.names=F, fileEncoding = "UTF-8", sep=',',append=TRUE)
+```

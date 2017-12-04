@@ -1,0 +1,380 @@
+---
+title: "Difference_With_Previous_Year"
+author: "Esther Lips"
+date: "15-11-2017"
+output: html_document
+---
+
+```{r Load Packages}
+library("tidyr")
+library("dplyr")
+rm(list=ls())
+```
+
+```{r load Data}
+
+country_16 <- read.csv("data/PS_meanScores_per_country_2016.csv" , sep=',', colClasses = "character")
+clinic_16 <- read.csv("data/PS_meanScores_per_clinic_2016.csv" , sep=',', colClasses = "character")
+
+country_17 <- read.csv("data/PS_meanScores_per_country_2017.csv" , sep=',', colClasses = "character")
+clinic_17 <- read.csv("data/PS_meanScores_per_clinic_2017.csv" , sep=',', colClasses = "character")
+
+#un_clinics_2017 <- unique(ps_17$clinic_id)
+#length(unique(clinic_17$Clinic_ID))
+#[1] 326
+
+
+```
+
+Get difference per country
+
+```{r get Difference countries}
+
+all_countries <- c(country_17[,1], country_16[1:19,1])
+un_countries <- unique(all_countries)
+#length(un_countries)
+# [1] 19
+
+#init country table
+df1 <- data.frame(matrix(ncol = 34, nrow = length(un_countries)))
+colnames(df1) <- c("Country","#_resp_16", "#_resp_17", "Diff_Resp","Q1_16", "Q1_17", "Q1_Diff", "Q2_16", "Q2_17", "Q2_Diff", "Q3_16", "Q3_17", "Q3_Diff","Q4_16", "Q4_17", "Q4_Diff","Q5_16", "Q5_17", "Q5_Diff","Q6_16", "Q6_17", "Q6_Diff","Q7_16", "Q7_17", "Q7_Diff","Q8_16", "Q8_17", "Q8_Diff","Q9_16", "Q9_17", "Q9_Diff", "rowMean_2016", "rowMean_2017", "rowMean_diff")
+
+
+for(i in 1:length(un_countries))
+{
+  country = un_countries[i]
+  #print(country)
+  sub_16 <- country_16[which(country_16[,1] == country),]
+  sub_17 <- country_17[which(country_17[,1] == country),]
+  
+  if(nrow(sub_16) == 0)
+  {
+    df1[i,1] <- country
+    df1[i,3] <- 0
+    df1[i,3] <- sub_17$reviews
+    
+    j2 <- 5
+    
+    for(q in 1:10)
+    {
+      #print(i)
+      col = q+4
+      #print(col)
+      df1[i,j2] <- sub_16[1,col]
+      df1[i,j2+1] <- sub_17[1,col]
+      df1[i,j2+2] <- round(as.numeric(sub_17[1,col])-as.numeric(sub_16[1,col]), digits=4)
+      #print(paste(i, j2))
+      j2 = j2+3
+    }
+  }
+  
+  else
+  {
+    print(country)
+  
+    df1[i,1] <- country
+    df1[i,2] <- sub_16$reviews
+    df1[i,3] <- sub_17$reviews
+    df1[i,4] <- round(as.numeric(sub_17$reviews)-as.numeric(sub_16$reviews), digits=4)
+  
+    j2 <- 5
+    
+    for(q in 1:10)
+    {
+      #print(i)
+      col = q+4
+      #print(col)
+      df1[i,j2] <- sub_16[1,col]
+      df1[i,j2+1] <- sub_17[1,col]
+      df1[i,j2+2] <- round(as.numeric(sub_17[1,col])-as.numeric(sub_16[1,col]), digits=4)
+      #print(paste(i, j2))
+      j2 = j2+3
+    }
+  }
+}
+
+df1 <- df1[order(df1$Country),]
+write.csv(df1, file = "data/PS_difference_2016_2017_countries.csv" , row.names=F, fileEncoding = "UTF-8" )
+
+```
+Get difference per clinic
+
+```{r get difference per clinic}
+all_clinics <- c(clinic_16$Clinic_ID, clinic_17$Clinic_ID)
+un_cids <- unique(all_clinics)
+length(un_cids)
+#[1] 352
+
+#un_cids <- unique(clinic_17[,2])
+
+#init clinic table
+df2 <- data.frame(matrix(ncol = 36, nrow = length(un_cids)))
+colnames(df2) <- c("Country", "Clinic_ID", "Clinic_name","#_resp_16", "#_resp_17","Resp_Diff", "Q1_16", "Q1_17", "Q1_Diff", "Q2_16", "Q2_17", "Q2_Diff", "Q3_16", "Q3_17", "Q3_Diff","Q4_16", "Q4_17", "Q4_Diff","Q5_16", "Q5_17", "Q5_Diff","Q6_16", "Q6_17", "Q6_Diff","Q7_16", "Q7_17", "Q7_Diff","Q8_16", "Q8_17", "Q8_Diff","Q9_16", "Q9_17", "Q9_Diff", "rowMean_2016", "rowMean_2017", "rowMean_diff")
+
+for(i in 1:length(un_cids))
+{
+  clinic = un_cids[i]
+  #print(clinic)
+  sub_16 <- clinic_16[which(clinic_16$Clinic_ID == clinic),]
+  sub_17 <- clinic_17[which(clinic_17$Clinic_ID == clinic),]
+  
+  if(nrow(sub_16) == 0)
+  {
+	  df2[i,1] <- sub_17$Country
+	  df2[i,2] <- sub_17$Clinic
+	  df2[i,3] <- sub_17$Clinic_ID
+	  df2[i,4] <- 0
+	  df2[i,5] <- sub_17$reviews
+	  df2[i,6] <- 0
+	  
+	  j2 <- 7
+		
+		for(q in 1:10)
+    {
+      col = q+6
+      #print(paste("nrow(sub_16) == 0), Q=", q, col))
+      df2[i,j2] <- 0
+      df2[i,j2+1] <- sub_17[1,col]
+      df2[i,j2+2] <- 0
+      j2 = j2+3
+    }
+	}
+	
+	 if(nrow(sub_17) == 0)
+  {
+	  df2[i,1] <- sub_16$Country
+	  df2[i,2] <- sub_16$Clinic
+	  df2[i,3] <- sub_16$Clinic_ID
+	  df2[i,4] <- sub_16$reviews
+	  df2[i,5] <- 0
+	  df2[i,6] <- 0
+	  
+	  j2 <- 7
+		
+		for(q in 1:10)
+    {
+      col = q+6
+      #print(paste("nrow(sub_17) == 0), Q=", q,"col_df=", j2, "col_ps=", col ))
+      df2[i,j2] <- sub_16[1,col]
+      df2[i,j2+1] <- 0
+      df2[i,j2+2] <- 0
+      j2 = j2+3
+    }
+	}
+	
+	if(nrow(sub_16) == 1 && nrow(sub_17) == 1)
+	{
+	  #print("Hello")
+	  df2[i,1] <- sub_17$Country
+	  df2[i,2] <- sub_17$Clinic
+	  df2[i,3] <- sub_17$Clinic_ID
+	  df2[i,4] <- sub_16$reviews
+    df2[i,5] <- sub_17$reviews
+    df2[i,6] <- round(as.numeric(sub_17$reviews)-as.numeric(sub_16$reviews), digits=4)
+    
+    j2 <- 7
+    
+    for(q in 1:10)
+    {
+      col = q+6
+      df2[i,j2] <- sub_16[1,col]
+      df2[i,j2+1] <- sub_17[1,col]
+      df2[i,j2+2] <- round(as.numeric(sub_17[1,col])-as.numeric(sub_16[1,col]), digits=4)
+      j2 = j2+3
+    }
+	}
+}
+
+df2 <- df2[order(df2$Country),]
+write.csv(df2, file = "data/PS_difference_2016_2017_clinics.csv" , row.names=F)
+
+```
+Get difference for patient type per country
+```{r get difference per country per patienttype}
+rm(list=ls())
+un_patient_types <- c("HD", "Home HD/PD","Clinic Consult")
+ptype <- c("PatientType_HD", "PatientType_HomeHD_PD", "PatientType_Clinic_Consult") # for filenames
+
+for(p in 1:length(un_patient_types))
+{ 
+  countries_16 <- read.csv(paste("data/PS_meanScores_",ptype[p],"_countries_2016.csv", sep='') , sep=',', colClasses = "character")
+  countries_17 <- read.csv(paste("data/PS_meanScores_",ptype[p],"_countries_2017.csv", sep='')  , sep=',', colClasses = "character")
+
+  clinics_16 <- read.csv(paste("data/PS_meanScores_",ptype[p],"_clinics_2016.csv", sep='') , sep=',', colClasses = "character")
+  clinics_17 <- read.csv(paste("data/PS_meanScores_",ptype[p],"_clinics_2017.csv", sep='')  , sep=',', colClasses = "character")
+  
+  names(countries_16) <- names(countries_17)
+  
+  all_countries <- c(countries_16[,1], countries_17[,1])
+  un_countries <- unique(all_countries)
+  un_countries <- un_countries[which(un_countries != "Global")]
+  length(un_countries)
+  
+  all_clinics <- c(clinics_16[,3], clinics_17[,2])
+  un_cids <- unique(all_clinics)
+  length(un_cids)
+  
+  #init country table
+  df1 <- data.frame(matrix(ncol = 34, nrow = length(un_countries)))
+  colnames(df1) <- c("Country","#_resp_16", "#_resp_17", "Diff_Resp","Q1_16", "Q1_17", "Q1_Diff", "Q2_16", "Q2_17", "Q2_Diff", "Q3_16", "Q3_17", "Q3_Diff","Q4_16", "Q4_17", "Q4_Diff","Q5_16", "Q5_17", "Q5_Diff","Q6_16", "Q6_17", "Q6_Diff","Q7_16", "Q7_17", "Q7_Diff","Q8_16", "Q8_17", "Q8_Diff","Q9_16", "Q9_17", "Q9_Diff", "rowMean_2016", "rowMean_2017", "rowMean_diff")
+  
+  for(i in 1:length(un_countries))
+  {
+    country = un_countries[i]
+    
+    sub_16 <- countries_16[which(countries_16[,1] == country),]
+    sub_17 <- countries_17[which(countries_17[,1] == country),]
+    
+    if(nrow(sub_16) == 0)
+    {
+      df1[i,1] <- country
+      df1[i,3] <- 0
+      df1[i,3] <- sub_17$reviews
+      
+      j2 <- 5
+      
+      for(q in 1:10)
+      {
+        #print(i)
+        col = q+4
+        #print(col)
+        df1[i,j2] <- sub_16[1,col]
+        df1[i,j2+1] <- sub_17[1,col]
+        df1[i,j2+2] <- round(as.numeric(sub_17[1,col])-as.numeric(sub_16[1,col]), digits=4)
+        #print(paste(i, j2))
+        j2 = j2+3
+      }
+    }
+    
+    else
+    {
+      #print(country)
+    
+      df1[i,1] <- country
+      df1[i,2] <- sub_16$reviews
+      df1[i,3] <- sub_17$reviews
+      df1[i,4] <- round(as.numeric(sub_17$reviews)-as.numeric(sub_16$reviews), digits=4)
+    
+      j2 <- 5
+      
+      for(q in 1:10)
+      {
+        #print(i)
+        col = q+4
+        #print(col)
+        df1[i,j2] <- sub_16[1,col]
+        df1[i,j2+1] <- sub_17[1,col]
+        df1[i,j2+2] <- round(as.numeric(sub_17[1,col])-as.numeric(sub_16[1,col]), digits=4)
+        #print(paste(i, j2))
+        j2 = j2+3
+      }
+    }
+  }
+
+  df1 <- df1[order(df1$Country),]
+  #paste("data/PS_diff_",ptype[p],"_2016_2017_countries.csv", sep='')
+  write.csv(df1, file = paste("data/PS_diff_",ptype[p],"_2016_2017_countries.csv", sep='') , row.names=F, fileEncoding = "UTF-8" )
+}
+
+```
+
+get difference for clinics per patienttypes
+
+```{r differences per clinic per patienttype}
+
+
+for(p in 1:length(un_patient_types))
+{ 
+  clinics_16 <- read.csv(paste("data/PS_meanScores_",ptype[p],"_clinics_2016.csv", sep='') , sep=',', colClasses = "character")
+  clinics_17 <- read.csv(paste("data/PS_meanScores_",ptype[p],"_clinics_2017.csv", sep='')  , sep=',', colClasses = "character")
+  
+  #names(clinics_16) <- names(clinics_17)
+  
+  all_clinics <- c(clinics_16[,2], clinics_17[,2])
+  un_cids <- unique(all_clinics)
+  un_cids <- un_cids[which(un_cids != 'NA')]
+  length(un_cids)
+  
+  #init clinic table
+df2 <- data.frame(matrix(ncol = 36, nrow = length(un_cids)))
+colnames(df2) <- c("Country", "Clinic_ID", "Clinic","#_resp_16", "#_resp_17","Resp_Diff", "Q1_16", "Q1_17", "Q1_Diff", "Q2_16", "Q2_17", "Q2_Diff", "Q3_16", "Q3_17", "Q3_Diff","Q4_16", "Q4_17", "Q4_Diff","Q5_16", "Q5_17", "Q5_Diff","Q6_16", "Q6_17", "Q6_Diff","Q7_16", "Q7_17", "Q7_Diff","Q8_16", "Q8_17", "Q8_Diff","Q9_16", "Q9_17", "Q9_Diff", "rowMean_2016", "rowMean_2017", "rowMean_diff")
+
+  for(i in 1:length(un_cids))
+  {
+    clinic = un_cids[i]
+    #print(clinic)
+    sub_16 <- clinics_16[which(clinics_16$Clinic_ID == clinic),]
+    sub_17 <- clinics_17[which(clinics_17$Clinic_ID == clinic),]
+    
+    if(nrow(sub_16) == 0)
+    {
+  	  df2[i,1] <- sub_17$Country
+  	  df2[i,2] <- sub_17$Clinic_ID
+  	  df2[i,3] <- sub_17$Clinic
+  	  df2[i,4] <- 0
+  	  df2[i,5] <- sub_17$reviews
+  	  df2[i,6] <- 0
+  	  
+  	  j2 <- 7
+  		
+  		for(q in 1:10)
+      {
+        col = q+6
+        #print(paste("nrow(sub_16) == 0), Q=", q, col))
+        df2[i,j2] <- 0
+        df2[i,j2+1] <- sub_17[1,col]
+        df2[i,j2+2] <- 0
+        j2 = j2+3
+      }
+  	}
+  	
+  	 if(nrow(sub_17) == 0)
+    {
+  	  df2[i,1] <- sub_16$Country
+  	  df2[i,2] <- sub_16$Clinic_ID
+  	  df2[i,3] <- sub_16$Clinic
+  	  df2[i,4] <- sub_16$reviews
+  	  df2[i,5] <- 0
+  	  df2[i,6] <- 0
+  	  
+  	  j2 <- 7
+  		
+  		for(q in 1:10)
+      {
+        col = q+6
+        #print(paste("nrow(sub_17) == 0), Q=", q,"col_df=", j2, "col_ps=", col ))
+        df2[i,j2] <- sub_16[1,col]
+        df2[i,j2+1] <- 0
+        df2[i,j2+2] <- 0
+        j2 = j2+3
+      }
+  	}
+  	
+  	if(nrow(sub_16) == 1 && nrow(sub_17) == 1)
+  	{
+  	  #print("Hello")
+  	  df2[i,1] <- sub_17$Country
+  	  df2[i,2] <- sub_17$Clinic_ID
+  	  df2[i,3] <- sub_17$Clinic
+  	  df2[i,4] <- sub_16$reviews
+      df2[i,5] <- sub_17$reviews
+      df2[i,6] <- round(as.numeric(sub_17$reviews)-as.numeric(sub_16$reviews), digits=4)
+      
+      j2 <- 7
+      
+      for(q in 1:10)
+      {
+        col = q+6
+        df2[i,j2] <- sub_16[1,col]
+        df2[i,j2+1] <- sub_17[1,col]
+        df2[i,j2+2] <- round(as.numeric(sub_17[1,col])-as.numeric(sub_16[1,col]), digits=4)
+        j2 = j2+3
+      }
+  	}
+  }
+  
+  df2 <- df2[order(df2$Country),]
+  write.csv(df2, file = paste("data/PS_diff_",ptype[p],"_2016_2017_clinics.csv", sep='') , row.names=F)
+}
+```
+

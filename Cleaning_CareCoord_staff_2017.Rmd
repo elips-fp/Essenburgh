@@ -1,0 +1,234 @@
+---
+title: "CareCoord_staff"
+author: "Esther Lips"
+date: "3-11-2017"
+output: html_document
+---
+
+This files describes the data cleaning of CCS file
+
+```{r Load Packages}
+library("tidyr")
+library("dplyr")
+rm(list=ls())
+```
+
+Read data
+
+```{r Read data}
+rm(list=ls())
+ds1_s <- tbl_df(read.csv("data/RawData-CareCoordinationStaff-11-13-2017/RawData-Part-1-5742477-11-13-2017-1510643832757.csv", skip = 2, colClasses = "character"))
+ds2_s <- tbl_df(read.csv("data/RawData-CareCoordinationStaff-11-13-2017/RawData-Part-2-5742477-11-13-2017-1510643839479.csv", skip = 2, colClasses = "character"))
+head <- read.table('data/RawData-CareCoordinationStaff-11-13-2017/RawData-Part-1-5742477-11-13-2017-1510643832757.csv', nrows = 2, header = FALSE, sep =',', stringsAsFactors = FALSE)
+
+LUT <- tbl_df(read.csv2("./data/LUT_v2.csv", sep=',', header=T, colClasses = "character"))
+
+# remove first (empty) line
+ds1_s <- ds1_s[-1,]
+ds2_s <- ds2_s[-1,]
+
+# concat data
+ccs_raw <- rbind(ds1_s, ds2_s)
+
+ccs_raw <- ccs_raw[which(ccs_raw$Seq..Number ==1),]
+dim(ccs_raw)
+#[1] 6143  124
+
+# add column verw_code
+ccs_raw$verw_code <- "NM"
+```
+
+
+Match Clinic Name (lowercase) in moc file with clinic name in LUT file
+
+```{r Match ClinicName}
+c_name.idx <- match(tolower(ccs_raw$Custom.Variable.5), tolower(LUT$c_name), nomatch=0)
+c_name2.idx <- match(tolower(ccs_raw$Custom.Variable.5), tolower(LUT$c_name2), nomatch=0) 
+c_name3.idx <- match(tolower(ccs_raw$Custom.Variable.5), tolower(LUT$c_name3), nomatch=0)
+
+notnull_nm1 <- which(c_name.idx !=0)
+notnull_nm2 <- which(c_name2.idx > 1) # skip also 1, which matches to ''
+notnull_nm3 <- which(c_name3.idx > 1) # skip also 1, which matches to ''
+
+#length(notnull_nm1)
+#[1] 5215
+#length(notnull_nm2)
+# [1] 952
+#length(notnull_nm3)
+#[1] 19
+
+ccs_raw$country[notnull_nm1] <- LUT$country[c_name.idx]
+ccs_raw$clinic[notnull_nm1] <- LUT$c_name[c_name.idx]
+ccs_raw$clinic_id[notnull_nm1] <- LUT$c_id[c_name.idx]
+ccs_raw$verw_code[notnull_nm1] <- "VCNM"
+
+
+ccs_raw$country[notnull_nm2] <- LUT$country[c_name2.idx[notnull_nm2]]
+ccs_raw$clinic[notnull_nm2] <- LUT$c_name[c_name2.idx[notnull_nm2]]
+ccs_raw$clinic_id[notnull_nm2] <- LUT$c_id[c_name2.idx[notnull_nm2]]
+ccs_raw$verw_code[notnull_nm2] <- "VCNM"
+
+ccs_raw$country[notnull_nm3] <- LUT$country[c_name3.idx[notnull_nm3]]
+ccs_raw$clinic[notnull_nm3] <- LUT$c_name[c_name3.idx[notnull_nm3]]
+ccs_raw$clinic_id[notnull_nm3] <- LUT$c_id[c_name3.idx[notnull_nm3]]
+ccs_raw$verw_code[notnull_nm3] <- "VCNM"
+
+nr_names = length(notnull_nm1)+length(notnull_nm2)+length(notnull_nm3)
+
+print(paste("In total",nr_names,"matches on ClinicNames are found."))
+```
+View matches in table
+```{r }
+#length(which(ccs_raw$verw_code == 'NM'))
+# [1] 91
+#length(which(ccs_raw$verw_code == 'VCID'))
+#[1] 0
+#length(which(ccs_raw$verw_code == 'VCIP'))
+#[1] 0
+#length(which(ccs_raw$verw_code == 'VCNM'))
+# [1] 6052
+
+ccs_raw$verw_code <- as.factor(ccs_raw$verw_code)
+ccs_raw$Custom.Variable.4 <- as.factor(ccs_raw$Custom.Variable.4)
+table(ccs_raw$Custom.Variable.4, ccs_raw$verw_code)
+
+```
+
+14-11 Update ClinicNames with short names
+
+```{r Update Clinic Names}
+update_names <- tbl_df(read.csv2("./data/LUT_v3.csv", sep=',', header=T, colClasses = "character"))
+
+c.idx <- match(ccs_raw$clinic_id, update_names$c_id, nomatch=0)
+notnull <- which(c.idx != 0)
+
+df <- data.frame(matrix(ncol = 4, nrow = length(notnull)))
+df[,1] <- ccs_raw$clinic_id[notnull]
+df[,2] <- ccs_raw$clinic[notnull]
+df[,3] <- update_names$c_id[c.idx]
+df[,4] <- update_names$c_name[c.idx]
+
+ccs_raw$clinic[notnull] <- update_names$c_name[c.idx]
+
+# check whether procedure went ok
+#ccs_raw$clinic[which(ccs_raw$clinic_id == 1502)]
+```
+
+21-11 Recoding cols
+```{r Recoding Columns}
+ccs_copy <- ccs_raw
+
+recode_cols <- c(70, 71, 72, 75, 76)
+multi_scale <- c(34,39,44,49,54,59,64)
+
+for(c in 1:length(recode_cols)) 
+{
+  col <- recode_cols[c]
+  #print(col)
+  r1.idx <- which(ccs_raw[,col] == 5)
+  r2.idx <- which(ccs_raw[,col] == 4)
+  r3.idx <- which(ccs_raw[,col] == 3)
+  r4.idx <- which(ccs_raw[,col] == 2)
+  r5.idx <- which(ccs_raw[,col] == 1)
+  
+  ccs_raw[r1.idx,col] <- 1
+  ccs_raw[r2.idx,col] <- 2
+  ccs_raw[r3.idx,col] <- 3
+  ccs_raw[r4.idx,col] <- 4
+  ccs_raw[r5.idx,col] <- 5
+}
+
+for(i in 1:length(multi_scale))
+{
+  col = multi_scale[i]
+  m1.idx <- which(ccs_raw[,col] == 1)
+  m2.idx <- which(ccs_raw[,col+1] == 1)
+  m3.idx <- which(ccs_raw[,col+2] == 1)
+  m4.idx <- which(ccs_raw[,col+3] == 1)
+  m5.idx <- which(ccs_raw[,col+4] == 1)
+  
+  ccs_raw[m1.idx,col] <- 1
+  ccs_raw[m2.idx,col+1] <- 2
+  ccs_raw[m3.idx,col+2] <- 3
+  ccs_raw[m4.idx,col+3] <- 4
+  ccs_raw[m5.idx,col+4] <- 5
+}
+
+results = list()
+
+
+# convert multiple answers to neutral
+
+for(i in 1:length(multi_scale))
+{
+  print(paste("Working on column no.", multi_scale[i]))
+  p=1
+  for(j in 1:nrow(ccs_raw)) 
+  {
+      col_s = multi_scale[i]
+      col_e = col_s+4
+      l <- length(which(ccs_raw[j,col_s:col_e] == ""))
+      question <- ccs_raw[j,col_s:col_e]
+      max <- max(as.numeric(question), na.rm=T)
+      min <- min(as.numeric(question), na.rm=T)
+      avg <- mean(as.numeric(question), na.rm=T)
+      ix <- which(ccs_raw[j,col_s:col_e] != "")
+      answers <- which(ccs_raw[5931,col_s:col_e] != "")
+      
+      if (l != 4)
+      {
+        results <- c(results, j)
+        #print(ccs_raw[j,col_s:col_e])
+        ccs_raw[j,col_s:col_e] <- ''
+        ccs_raw[j,col_s+2] <- 3
+        #print(ccs_raw[j,col_s:col_e])
+        #print(l)
+        #print(paste(multi_scale[i],p, "index", j, "length=", l, "max answer=", max, "min answer=", min, "mean answer=", avg ))
+        p=p+1
+      }
+  }
+}
+
+#results <- unlist(results)
+#un_results <- unique(results)
+#test <- ccs_raw[un_results,]
+#length(un_results)
+#[1] 236
+
+```
+Save files with and without verwerkingscode
+
+```{r Save Files}
+# make header
+header <- mat.or.vec(nrow(head), ncol(ccs_raw))
+header <- cbind(head, header)
+header <- rbind(header, names(ccs_raw))
+header[1,which(header[1,] == 0)] <- ''
+header[2,which(header[2,] == 0)] <- ''
+
+# add empty line below header
+empty_line <- c(rep('',ncol(header)))
+header <- rbind(header, empty_line)
+
+ccs_raw <- ccs_raw[which(ccs_raw$verw_code != 'NM'),]
+#dim(ccs_raw)
+# [1] 6052  125
+
+write.table(header[,1:124], file = "data/FINAL/CCS/Clean-5742477-11-14-2017.csv", row.names=F, col.names=F,fileEncoding = "UTF-8", sep=',')
+write.table(ccs_raw[,1:124], file = "data/FINAL/CCS/Clean-5742477-11-14-2017.csv", row.names=F, col.names=F, append=T, fileEncoding = "UTF-8", sep=',')
+
+write.table(header[,1:ncol(ccs_raw)], file = "data/FINAL/CCS/Clean-5742477-11-14-2017-verwerkingcode.csv", row.names=F, col.names=F,fileEncoding = "UTF-8", sep=',')
+write.table(ccs_raw, file = "data/FINAL/CCS/Clean-5742477-11-14-2017-verwerkingcode.csv", row.names=F, col.names=F, append=T, fileEncoding = "UTF-8", sep=',')
+
+
+```
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,50 @@
+---
+title: "MOC - make historie data"
+author: "Esther Lips"
+date: "20-11-2017"
+output: html_document
+---
+
+The code below makes a 'history' data file that, which will also used in the next preprocessing and analyses steps. 
+
+Input files: MOC data from this year, MOC data from previous year
+Output files: History data
+
+```{r Loading packages}
+library("tidyr")
+library("dplyr")
+rm(list=ls())
+print("Libraries Loaded and emptied global environment")
+
+```
+```{r Loading data}
+moc_17 <- tbl_df(read.csv2("./data/FINAL/MOC/Clean-5742959-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2))
+moc_16 <- tbl_df(read.csv2("2016/diaverum_staff_raw_data_MOC_2016.csv", sep=';', header=T, colClasses = "character", skip=2))
+
+# remove responses that do not have Seq..Number 1
+moc_17 <- moc_17[which(moc_17$Seq..Number ==1),]
+print(paste("The data loaded has in total", nrow(moc_17), "responses.", sep=' '))
+
+# subsitute \n in freetext with a white space to prevent problems with reading the data in Excel
+for(i in 1:nrow(moc_17))
+{
+  moc_17[i,39] <- gsub("\n", " ", moc_17[i,39])
+}
+
+# append data needed to new variable
+hist_2017 <- cbind(moc_17[,13], moc_17[,12], moc_17[,11], moc_17[,1], moc_17[,3], moc_17[,27:38], moc_17[,26], moc_17[,39], moc_17[,42])
+names(hist_2017) <- c(names(moc_16), "verw_code")
+
+# make header
+header <- mat.or.vec(2, length(names(hist_2017)))
+header[1,1] <- "Diaverum Staff Reviews - 8 Oct to 13 Nov"
+header <- rbind(header, names(hist_2017))
+header[1,which(header[1,] == 0)] <- ''
+header[2,which(header[2,] == 0)] <- ''
+
+# save data
+write.table(header, file = "data/diaverum_staff_clean_data_MOC_nov2017.csv", row.names=F, col.names=F,fileEncoding = "UTF-8",sep=',')
+write.table(hist_2017, file = "data/diaverum_staff_clean_data_MOC_nov2017.csv", row.names=F, col.names=F, fileEncoding = "UTF-8", sep=',',append=TRUE)
+print(paste("Saved history data as: data/diaverum_staff_clean_data_MOC_nov2017.csv"))
+
+```

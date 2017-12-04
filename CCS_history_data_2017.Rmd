@@ -1,0 +1,68 @@
+---
+title: "CCS_HistorieData"
+author: "Esther Lips"
+date: "24-11-2017"
+output: html_document
+---
+
+```{r Load packages & empty environment}
+rm(list=ls())
+library("tidyr")
+library("dplyr")
+library("readxl")
+```
+
+```{r Read data}
+# Read raw CCS data
+ccs <- tbl_df(read.csv2("data/FINAL/CCS/Clean-5742477-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2, encoding="UTF-8"))
+
+ccs <-ccs[-1,]
+
+# Read XLS file with filenames
+names_XLS <- read_xlsx("Codebook_CC_Names.xlsx", sheet=3, col_names=T)
+```
+
+Make history data
+
+```{r rescale data}
+# rescale data
+multi_scale <- c(34,39,44,49,54,59,64)
+
+for(i in 1:length(multi_scale))
+{
+  print(paste("Rescaling column", multi_scale[i]))
+  p=1
+  
+  for(j in 1:nrow(ccs)) 
+  {
+      col_s = multi_scale[i]
+      col_e = col_s+4
+      
+      l <- length(which(ccs[j,col_s:col_e] == ""))
+      ix <- which(ccs[j,col_s:col_e] != "")
+      
+      if (l == 4)
+      {
+        ix <- which(ccs[j,col_s:col_e] != "")
+        ccs[j,col_s] <- ix
+      }
+  }
+}
+```
+
+Make history data
+```{r make history data}
+hist_ccs <- cbind(ccs[,1:10], ccs[,23:27], ccs[,29:32], ccs[,34], ccs[,39], ccs[,44], ccs[,49], ccs[,54], ccs[,59], ccs[,64], ccs[,70:76], ccs[,78:81], ccs[,83:85], ccs[,87:92], ccs[,94:97],  ccs[,99:106],  ccs[,108:114],  ccs[,117:118],  ccs[,120], ccs$verw_code)
+
+names(hist_ccs) <- c(names_XLS$`Variable abbreviation`[1:10], names_XLS$`Variable abbreviation`[13:70], "verw_code")
+
+header <- mat.or.vec(2, length(names(hist_ccs)))
+header[1,1] <- "Care Coordination Staff Reviews - 8 Oct to 13 Nov"
+header[2,1] <- ""
+header <- rbind(header, names(hist_ccs))
+header[1,which(header[1,] == 0)] <- ''
+header[2,which(header[2,] == 0)] <- ''
+
+write.table(header, file = "data/diaverum_staff_clean_data_CCS_nov2017.csv", row.names=F, col.names=F,fileEncoding = "UTF-8",sep=',')
+write.table(hist_ccs, file = "data/diaverum_staff_clean_data_CCS_nov2017.csv", row.names=F, col.names=F, fileEncoding = "UTF-8", sep=',',append=TRUE)
+```
