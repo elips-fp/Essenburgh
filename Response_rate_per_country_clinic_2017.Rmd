@@ -2,7 +2,9 @@
 title: "Response rate per country/clinic"
 author: "Esther Lips"
 date: "3-12-2017"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 This document describes the steps taken to get the summary data per clinic in a table. 

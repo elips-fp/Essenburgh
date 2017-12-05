@@ -15,7 +15,6 @@ library("tidyr")
 library("dplyr")
 library("readxl")
 source("R_functions/get_deviation.R")
-
 ```
 
 ```{r read data}
@@ -31,10 +30,10 @@ Get meanScores for Global + countries data
 # 1) countries
 # 2) nr_reviews
 # 3) reponse_rate
-# 4) avg_person_centred, col=11:16
-# 5) avg_service_coord, col=17:22
-# 6) avg_professional_coord, col=23:29
-# 7) avg_organisational_coord, col=30:35
+# 4) avg_service_coord, col=11:16, 18:19
+# 5) avg_professional_coord, col=23,24,33,31,32,34,35
+# 6) avg_organisational_coord, col=25,28,29
+# 7) avg_person-centred_coord, col=20,21,22,27
 # 8) avg overall care coordination, col=36
 # 9) avg overall_care_coord * avg person centred, 
 # 10) avg overall_care_coord * avg_service_coord, 
@@ -74,6 +73,7 @@ Get meanScores for Global + countries data
 # 44) avg_diabetic_nurse mean(col[,47])
 
 
+
 un_countries <- unique(ccp_hist$country)
 
 df_countries <- data.frame(matrix(ncol = 52, nrow = length(un_countries)+1))
@@ -84,13 +84,18 @@ for(c in 1:length(un_countries))
   c_data <- ccp_hist[which(ccp_hist$country == un_countries[c]),]
   c_lut <- sum(as.numeric(LUT$NoP[which(LUT$country == un_countries[c])]))
   
+  person_centered <- cbind(c_data[,20:22], c_data[,27])
+  service_coord <- cbind(c_data[,11:16], c_data[,18:19])
+  profesional_coord <- cbind(c_data[,23:24], c_data[,31:35])
+  organisational_coord <-  cbind(c_data[,25], c_data[,28:29])
+
   df_countries[c,1] <- un_countries[c]
   df_countries[c,2] <- nrow(c_data)
   df_countries[c,3] <- (nrow(c_data)/c_lut)*100
-  df_countries[c,4] <- mean(data.matrix(c_data[,11:16]), na.rm=T) # avg  person centred
-  df_countries[c,5] <- mean(data.matrix(c_data[,17:22]), na.rm=T) # avg service coord
-  df_countries[c,6] <- mean(data.matrix(c_data[,23:29]), na.rm=T) # avg professional coord
-  df_countries[c,7] <- mean(data.matrix(c_data[,30:35]), na.rm=T) # avg organisational coord
+  df_countries[c,4] <- mean(data.matrix(person_centered), na.rm=T) # avg  person centred
+  df_countries[c,5] <- mean(data.matrix(service_coord), na.rm=T) # avg service coord
+  df_countries[c,6] <- mean(data.matrix(profesional_coord), na.rm=T) # avg professional coord
+  df_countries[c,7] <- mean(data.matrix(organisational_coord), na.rm=T) # avg organisational coord
   df_countries[c,8] <- (mean(data.matrix(c_data[,36]), na.rm=T)-1) # avg overall care coord
   df_countries[c,9] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,4]) # avg overall care coord * avg  person centred
   df_countries[c,10] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,5]) # avg overall care coord * avg service coord
@@ -138,13 +143,18 @@ for(c in 1:length(un_countries))
   df_countries[c,52] <- as.numeric(df_countries[c,8])*as.numeric(df_countries[c,44])
 }
 
+person_centred <- cbind(ccp_hist[,20:22], ccp_hist[,27])
+service_coord <- cbind(ccp_hist[,11:16], ccp_hist[,18:19])
+profesional_coord <- cbind(ccp_hist[,23:24], ccp_hist[,31:35])
+organisational_coord <-  cbind(ccp_hist[,25], ccp_hist[,28:29])
+  
 df_countries[20,1] <- "Global"
 df_countries[20,2] <- nrow(ccp_hist)
 df_countries[20,3] <- (nrow(ccp_hist)/sum(as.numeric(LUT$NoP)))*100
-df_countries[20,4] <- mean(data.matrix(ccp_hist[,11:16]), na.rm=T) # avg person centred
-df_countries[20,5] <- mean(data.matrix(ccp_hist[,17:22]), na.rm=T) # avg service coord
-df_countries[20,6] <- mean(data.matrix(ccp_hist[,23:29]), na.rm=T) # avg professional coord
-df_countries[20,7] <- mean(data.matrix(ccp_hist[,30:35]), na.rm=T) # avg organisational coord
+df_countries[20,4] <- mean(data.matrix(person_centered), na.rm=T) # avg  person centred
+df_countries[20,5] <- mean(data.matrix(service_coord), na.rm=T) # avg service coord
+df_countries[20,6] <- mean(data.matrix(profesional_coord), na.rm=T) # avg professional coord
+df_countries[20,7] <- mean(data.matrix(organisational_coord), na.rm=T) #
 df_countries[20,8] <- mean(data.matrix(ccp_hist[,36]), na.rm=T)-1 # avg overall care coord
 df_countries[20,9] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,4]) # avg overall care coord * avg person centred
 df_countries[20,10] <- as.numeric(df_countries[20,8])*as.numeric(df_countries[20,5]) # avg overall care coord * avg service coord
@@ -209,7 +219,7 @@ for(i in 1:length(col_ratio))
 }
 
 # save data
-write.csv(df_countries, file = "data/CCP_controleGetallen_per_country_2017.csv" , row.names=F )
+write.csv(df_countries, file = "data/CCP_meanScores_per_country_2017.csv" , row.names=F )
 ```
 
 Get meanScores for clinic data
@@ -227,15 +237,20 @@ for(cl in 1:length(un_clinics))
   cl_data <- ccp_hist[which(ccp_hist$clinic_id == un_clinics[cl]),]
   c_lut <- sum(as.numeric(LUT$NoP[which(LUT$c_id == un_clinics[cl])]))
   
+  person_centered <- cbind(cl_data[,20:22], cl_data[,27])
+  service_coord <- cbind(cl_data[,11:16], cl_data[,18:19])
+  profesional_coord <- cbind(cl_data[,23:24], cl_data[,31:35])
+  organisational_coord <-  cbind(cl_data[,25], cl_data[,28:29])
+  
   df_clinics[cl,1] <- cl_data[1,8]
   df_clinics[cl,2] <- cl_data[1,9]
   df_clinics[cl,3] <- cl_data[1,10]
   df_clinics[cl,4] <- nrow(cl_data)
   df_clinics[cl,5] <- (nrow(cl_data)/c_lut)*100
-  df_clinics[cl,6] <- mean(data.matrix(cl_data[,11:16]), na.rm=T) # avg  person centred
-  df_clinics[cl,7] <- mean(data.matrix(cl_data[,17:22]), na.rm=T) # avg service coord
-  df_clinics[cl,8] <- mean(data.matrix(cl_data[,23:29]), na.rm=T) # avg professional coord
-  df_clinics[cl,9] <- mean(data.matrix(cl_data[,30:35]), na.rm=T) # avg organisational coord
+  df_clinics[cl,6] <- mean(data.matrix(person_centered), na.rm=T) # avg  person centred
+  df_clinics[cl,7] <- mean(data.matrix(service_coord), na.rm=T) # avg service coord
+  df_clinics[cl,8] <- mean(data.matrix(profesional_coord), na.rm=T) # avg professional coord
+  df_clinics[cl,9] <- mean(data.matrix(organisational_coord), na.rm=T) # avg organisational coord
   df_clinics[cl,10] <- mean(data.matrix(cl_data[,36]), na.rm=T)-1 # avg overall care coord
   df_clinics[cl,11] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,6]) # avg overall care coord * avg  person centred
   df_clinics[cl,12] <- as.numeric(df_clinics[cl,10])*as.numeric(df_clinics[cl,7]) # avg overall care coord * avg service coord
@@ -297,5 +312,5 @@ for(i in 1:length(col_ratio))
 }
  
 # save data
-write.csv(df_clinics, file = "data/CCP_controleGetallen_per_clinic_2017.csv" , row.names=F)
+write.csv(df_clinics, file = "data/CCP_meanScores_per_clinic_2017.csv" , row.names=F)
 ```

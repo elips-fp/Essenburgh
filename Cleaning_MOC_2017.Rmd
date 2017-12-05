@@ -10,14 +10,14 @@ This markdown file describes the cleaning of the MOC file.
 Input files: raw data from QuestionPro (me thinks), LUT file
 
 
-## STEP 0: load packages
-```{r Load Packages}
+## Load packages
+```{r message=FALSE}
 library("tidyr")
 library("dplyr")
 rm(list=ls())
 ```
 
-## STEP 1: Read in data
+## Read in data
 
 ```{r Read data}
 moc1 <- tbl_df(read.csv("data/RawData-MOC-11-13-2017/RawData-Part-1-5742959-11-13-2017-1510643476144.csv", skip = 2 , colClasses = "character"))
@@ -31,14 +31,14 @@ LUT <- tbl_df(read.csv2("./data/LUT_v2.csv", sep=',', header=T, colClasses = "ch
 moc_raw <- rbind(moc1, moc2)
 #dim(moc_raw)
 
-print(paste("In total this file has", nrow(moc_raw)," responses."))
+print(paste("In total this file has", nrow(moc_raw),"responses."))
 
 # For further purposes, add column 'verw_code', and initialize it with 'NM' (which stands for 'Non-Matching')
 moc_raw$verw_code <- "NM"
 
 ```
 
-## STEP 2: Convert 2017 data to 2016 scale
+## Convert 2017 data to 2016 scale
 
 ```{r Convert data to different scale}
 # convert data 2017 to 2016 scales
@@ -92,8 +92,7 @@ moc_raw$verw_code[notnull_nm3] <- "VCNM"
 print(paste("The matches on ClinicNames are now corrected in Raw Data."))
 
 ```
-
-Tel tot slot het aantal 'NM' in column 'verwerkings code'
+## View matches in table
 
 ```{r view Matches}
 
@@ -110,10 +109,13 @@ Tel tot slot het aantal 'NM' in column 'verwerkings code'
 
 moc_raw$verw_code <- as.factor(moc_raw$verw_code)
 moc_raw$Custom.Variable.4 <- as.factor(moc_raw$Custom.Variable.4)
-table(moc_raw$Custom.Variable.4, moc_raw$verw_code)
+table <- table(moc_raw$Custom.Variable.4, moc_raw$verw_code)
 
+table
 ```
-14-11 Update ClinicNames with short names
+
+
+## Update ClinicNames with short names (14 nov 2017)
 
 ```{r Change long clinicNames}
 update_names <- tbl_df(read.csv2("./data/LUT_v3.csv", sep=',', header=T, colClasses = "character"))
@@ -136,7 +138,7 @@ print(paste("Long clinicNames are now substituted by short ClinicNames."))
 
 ```
 
-Save files with and without verwerkingscode
+## Save files with and without verwerkingscode
 ```{r save clean data file for Qlik}
 
 # make header
