@@ -7,9 +7,16 @@ output: html_document
 
 This document describes the steps taken to get the summary data per clinic in a table. 
 
-1) Read data & discard the responses with sequence ID > 1
+## Load packages
+```{r message=FALSE}
+library("tidyr")
+library("dplyr")
+rm(list=ls())
+```
 
-```{r Read Data}
+## Read data
+
+```{r message=FALSE}
 rm(list=ls())
 moc <- tbl_df(read.csv2("./data/FINAL/MOC/Clean-5742959-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2))
 ccs <- tbl_df(read.csv2("./data/FINAL/CCS/Clean-5742477-11-14-2017-verwerkingcode.csv", sep=',', header=T, colClasses = "character", skip=2))
@@ -22,17 +29,18 @@ ccs <- ccs[which(ccs$Seq..Number == 1),]
 ccp <- ccp[which(ccp$Seq..Number == 1),]
 ps <- ps[which(ps$Seq..Number == 1),]
 
-dim(moc)
+#dim(moc)
 # [1] 7586   43
-dim(ccs)
+#dim(ccs)
 # [1] 6052  126
-dim(ccp)
+#dim(ccp)
 # [1] 17512    96
-dim(ps)
+#dim(ps)
 # [1] 20295   62
 
 ```
-3) Table 1 Get ID matching per country
+
+## Get response rate per country
 
 ```{r Response Rate per Country}
 
@@ -119,11 +127,11 @@ write.csv(df1, file = "data/response_rates_per_country_FINAL_2017.csv" , row.nam
 
 ```
 
-4) Table 2 Get response rate per clinic
+## Get response rate per clinic
 
 ```{r ResponseRate per Clinic}
 LUT <- LUT[order(as.numeric(LUT$c_id)),]
-dim(LUT)
+#dim(LUT)
 
 df2 <- data.frame(matrix(ncol = 15, nrow = nrow(LUT)))
 colnames(df2) <- c("Country","Clinic_id","Clinic_name", "MOC_NoE", "MOC_#", "MOC_%", "CCS_NoE", "CCS_#", "CCS_%", "PS_NoP", "PS_#", "PS_%","CCP_NoP", "CCP_#", "CCP_%")
@@ -168,7 +176,6 @@ notnull <- which(ps_idx !=0)
 df2[,10] <- as.numeric(LUT$NoP)
 df2[notnull,11] <- t2_ps[ps_idx[notnull],3]-t2_ps[ps_idx[notnull],1] # total csv-nm
 df2[,12] <- round(df2[,11]/df2[,10]*100, digits=2) # ratio responses
-
 
 ## ccp
 ccp$verw_code <- as.factor(ccp$verw_code)
